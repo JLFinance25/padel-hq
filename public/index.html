@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Padel HQ</title>
+  <meta name="description" content="Our Virtual Enterprise firm's shared calendar and department to-do lists.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23F0B429'/%3E%3Cpath d='M5 11c6 3 16 3 22 0M5 21c6-3 16-3 22 0' stroke='%23fff' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Lock screen -->
+  <section id="login" class="login" hidden>
+    <form id="login-form" class="login-card" autocomplete="off">
+      <div class="brand brand-lg"><span class="ball" aria-hidden="true"></span><span class="wordmark">PADEL&nbsp;HQ</span></div>
+      <p class="login-sub">Our firm's calendar and to-do lists. Everyone sees the same thing.</p>
+      <label>Class passcode
+        <input id="login-pass" type="password" required autocomplete="current-password">
+      </label>
+      <label>Your first name <span class="hint">(shows next to your changes)</span>
+        <input id="login-name" type="text" maxlength="40" required>
+      </label>
+      <button class="btn btn-primary" type="submit">Enter</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- App -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="ball" aria-hidden="true"></span><span class="wordmark">PADEL&nbsp;HQ</span><span class="working" title="The firm name is not picked yet">working name</span></div>
+      <div class="topbar-right">
+        <button id="me-btn" class="chip chip-me" title="Change the name that shows next to your changes"></button>
+        <button id="logout-btn" class="btn btn-ghost btn-sm">Log out</button>
+      </div>
+    </header>
+    <nav id="tabs" class="tabs" role="tablist" aria-label="Sections"></nav>
+    <main id="main" tabindex="-1"></main>
+  </div>
+
+  <!-- Detail / edit panel -->
+  <div id="scrim" class="scrim" hidden></div>
+  <aside id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawer-title"></aside>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

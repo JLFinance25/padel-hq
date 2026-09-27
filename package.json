@@ -1,0 +1,11 @@
+{
+  "name": "padel-hq",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared calendar and department to-do lists for our Virtual Enterprise firm.",
+  "scripts": {
+    "dev": "node dev-server.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

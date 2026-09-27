@@ -1,0 +1,8 @@
+# Firm data never goes in the repo. It lives in the database behind the passcode.
+seed/
+.data/
+.env*
+node_modules/
+.vercel/
+.DS_Store
+.claude-flow/
