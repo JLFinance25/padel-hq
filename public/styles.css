@@ -682,3 +682,31 @@ details.panel[open] summary { margin-bottom: 8px; }
   .addbar input[type=date] { width: auto; flex: 1 1 0; min-width: 0; }
   .addbar .btn { flex: none; }
 }
+
+/* Documenter follow-ups: define the band color token; all icon buttons are 40px tap targets */
+:root { --navy-soft: #E4E8F0; }
+.icon-btn { width: 40px; height: 40px; }
+
+/* Final tester fixes */
+/* The pinned strip is for phones and narrow screens; wide screens list every post in Updates beside the board */
+@media (min-width: 901px) { #strip-post { display: none; } }
+#strip-post:focus { outline: none; box-shadow: 0 0 0 2px var(--green); }
+#updates-title:focus { outline: none; }
+/* Season line: no invisible tap pads that overlap a neighbor */
+.station::before { inset: -4px; }
+/* Circles tiers on phones: show the key as one line instead of colliding labels */
+.tier-key { display: none; }
+@media (max-width: 680px) {
+  .tier small { display: none; }
+  .tier { font-size: 0; }
+  .tier::after { top: 22px; }
+  .tier.silver::after { top: 22px; height: 20px; }
+  .coe-track { margin: 14px 0 12px; }
+  .tier-key { display: block; margin: 0 0 8px; font: 600 13px/1 var(--board-font); letter-spacing: .1em; text-transform: uppercase; color: var(--board-dim); }
+}
+/* Bigger tap targets */
+.me { min-height: 40px; }
+.feed-title a { padding: 8px 0 8px 8px; }
+.check { min-height: 40px; }
+.check input { width: 18px; height: 18px; }
+@media (max-width: 680px) { .tier.silver { top: -24px; } }

@@ -1,0 +1,707 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T17:56:56+00:00",
+  "title": "Design System: Padel HQ",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "oklch(97.0% 0.007 89)",
+        "tonalRamp": [
+          "oklch(15% 0.007 89)",
+          "oklch(26% 0.007 89)",
+          "oklch(38% 0.007 89)",
+          "oklch(49% 0.007 89)",
+          "oklch(61% 0.007 89)",
+          "oklch(72% 0.007 89)",
+          "oklch(84% 0.007 89)",
+          "oklch(95% 0.007 89)"
+        ]
+      },
+      "paper-2": {
+        "role": "neutral",
+        "displayName": "Paper Shade",
+        "canonical": "oklch(94.1% 0.013 87)",
+        "tonalRamp": [
+          "oklch(15% 0.013 87)",
+          "oklch(26% 0.013 87)",
+          "oklch(38% 0.013 87)",
+          "oklch(49% 0.013 87)",
+          "oklch(61% 0.013 87)",
+          "oklch(72% 0.013 87)",
+          "oklch(84% 0.013 87)",
+          "oklch(95% 0.013 87)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White",
+        "canonical": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "oklch(15% 0.000 90)",
+          "oklch(26% 0.000 90)",
+          "oklch(38% 0.000 90)",
+          "oklch(49% 0.000 90)",
+          "oklch(61% 0.000 90)",
+          "oklch(72% 0.000 90)",
+          "oklch(84% 0.000 90)",
+          "oklch(95% 0.000 90)"
+        ]
+      },
+      "row-hover": {
+        "role": "neutral",
+        "displayName": "Row Hover",
+        "canonical": "oklch(98.5% 0.005 95)",
+        "tonalRamp": [
+          "oklch(15% 0.005 95)",
+          "oklch(26% 0.005 95)",
+          "oklch(38% 0.005 95)",
+          "oklch(49% 0.005 95)",
+          "oklch(61% 0.005 95)",
+          "oklch(72% 0.005 95)",
+          "oklch(84% 0.005 95)",
+          "oklch(95% 0.005 95)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(90.5% 0.016 86)",
+        "tonalRamp": [
+          "oklch(15% 0.016 86)",
+          "oklch(26% 0.016 86)",
+          "oklch(38% 0.016 86)",
+          "oklch(49% 0.016 86)",
+          "oklch(61% 0.016 86)",
+          "oklch(72% 0.016 86)",
+          "oklch(84% 0.016 86)",
+          "oklch(95% 0.016 86)"
+        ]
+      },
+      "line-2": {
+        "role": "neutral",
+        "displayName": "Hairline Dark",
+        "canonical": "oklch(84.4% 0.019 83)",
+        "tonalRamp": [
+          "oklch(15% 0.019 83)",
+          "oklch(26% 0.019 83)",
+          "oklch(38% 0.019 83)",
+          "oklch(49% 0.019 83)",
+          "oklch(61% 0.019 83)",
+          "oklch(72% 0.019 83)",
+          "oklch(84% 0.019 83)",
+          "oklch(95% 0.019 83)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Navy Ink",
+        "canonical": "oklch(28.9% 0.062 264)",
+        "tonalRamp": [
+          "oklch(15% 0.062 264)",
+          "oklch(26% 0.062 264)",
+          "oklch(38% 0.062 264)",
+          "oklch(49% 0.062 264)",
+          "oklch(61% 0.062 264)",
+          "oklch(72% 0.062 264)",
+          "oklch(84% 0.062 264)",
+          "oklch(95% 0.062 264)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Body Text",
+        "canonical": "oklch(27.6% 0.012 264)",
+        "tonalRamp": [
+          "oklch(15% 0.012 264)",
+          "oklch(26% 0.012 264)",
+          "oklch(38% 0.012 264)",
+          "oklch(49% 0.012 264)",
+          "oklch(61% 0.012 264)",
+          "oklch(72% 0.012 264)",
+          "oklch(84% 0.012 264)",
+          "oklch(95% 0.012 264)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(49.4% 0.025 271)",
+        "tonalRamp": [
+          "oklch(15% 0.025 271)",
+          "oklch(26% 0.025 271)",
+          "oklch(38% 0.025 271)",
+          "oklch(49% 0.025 271)",
+          "oklch(61% 0.025 271)",
+          "oklch(72% 0.025 271)",
+          "oklch(84% 0.025 271)",
+          "oklch(95% 0.025 271)"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "oklch(61.3% 0.034 267)",
+        "tonalRamp": [
+          "oklch(15% 0.034 267)",
+          "oklch(26% 0.034 267)",
+          "oklch(38% 0.034 267)",
+          "oklch(49% 0.034 267)",
+          "oklch(61% 0.034 267)",
+          "oklch(72% 0.034 267)",
+          "oklch(84% 0.034 267)",
+          "oklch(95% 0.034 267)"
+        ]
+      },
+      "navy-soft": {
+        "role": "neutral",
+        "displayName": "Navy Mist",
+        "canonical": "oklch(93.0% 0.012 265)",
+        "tonalRamp": [
+          "oklch(15% 0.012 265)",
+          "oklch(26% 0.012 265)",
+          "oklch(38% 0.012 265)",
+          "oklch(49% 0.012 265)",
+          "oklch(61% 0.012 265)",
+          "oklch(72% 0.012 265)",
+          "oklch(84% 0.012 265)",
+          "oklch(95% 0.012 265)"
+        ]
+      },
+      "board": {
+        "role": "secondary",
+        "displayName": "Departures Navy",
+        "canonical": "oklch(25.1% 0.053 263)",
+        "tonalRamp": [
+          "oklch(15% 0.053 263)",
+          "oklch(26% 0.053 263)",
+          "oklch(38% 0.053 263)",
+          "oklch(49% 0.053 263)",
+          "oklch(61% 0.053 263)",
+          "oklch(72% 0.053 263)",
+          "oklch(84% 0.053 263)",
+          "oklch(95% 0.053 263)"
+        ]
+      },
+      "board-2": {
+        "role": "secondary",
+        "displayName": "Board Stripe",
+        "canonical": "oklch(27.4% 0.054 261)",
+        "tonalRamp": [
+          "oklch(15% 0.054 261)",
+          "oklch(26% 0.054 261)",
+          "oklch(38% 0.054 261)",
+          "oklch(49% 0.054 261)",
+          "oklch(61% 0.054 261)",
+          "oklch(72% 0.054 261)",
+          "oklch(84% 0.054 261)",
+          "oklch(95% 0.054 261)"
+        ]
+      },
+      "board-hover": {
+        "role": "secondary",
+        "displayName": "Board Hover",
+        "canonical": "oklch(31.3% 0.065 263)",
+        "tonalRamp": [
+          "oklch(15% 0.065 263)",
+          "oklch(26% 0.065 263)",
+          "oklch(38% 0.065 263)",
+          "oklch(49% 0.065 263)",
+          "oklch(61% 0.065 263)",
+          "oklch(72% 0.065 263)",
+          "oklch(84% 0.065 263)",
+          "oklch(95% 0.065 263)"
+        ]
+      },
+      "cell": {
+        "role": "secondary",
+        "displayName": "Tile Black",
+        "canonical": "oklch(17.9% 0.033 264)",
+        "tonalRamp": [
+          "oklch(15% 0.033 264)",
+          "oklch(26% 0.033 264)",
+          "oklch(38% 0.033 264)",
+          "oklch(49% 0.033 264)",
+          "oklch(61% 0.033 264)",
+          "oklch(72% 0.033 264)",
+          "oklch(84% 0.033 264)",
+          "oklch(95% 0.033 264)"
+        ]
+      },
+      "board-line": {
+        "role": "secondary",
+        "displayName": "Board Hairline",
+        "canonical": "oklch(95.3% 0.013 87) / 0.09",
+        "tonalRamp": [
+          "oklch(15% 0.013 87)",
+          "oklch(26% 0.013 87)",
+          "oklch(38% 0.013 87)",
+          "oklch(49% 0.013 87)",
+          "oklch(61% 0.013 87)",
+          "oklch(72% 0.013 87)",
+          "oklch(84% 0.013 87)",
+          "oklch(95% 0.013 87)"
+        ]
+      },
+      "board-text": {
+        "role": "secondary",
+        "displayName": "Warm White Letters",
+        "canonical": "oklch(95.3% 0.013 87)",
+        "tonalRamp": [
+          "oklch(15% 0.013 87)",
+          "oklch(26% 0.013 87)",
+          "oklch(38% 0.013 87)",
+          "oklch(49% 0.013 87)",
+          "oklch(61% 0.013 87)",
+          "oklch(72% 0.013 87)",
+          "oklch(84% 0.013 87)",
+          "oklch(95% 0.013 87)"
+        ]
+      },
+      "board-dim": {
+        "role": "secondary",
+        "displayName": "Dim Letters",
+        "canonical": "oklch(74.9% 0.034 264)",
+        "tonalRamp": [
+          "oklch(15% 0.034 264)",
+          "oklch(26% 0.034 264)",
+          "oklch(38% 0.034 264)",
+          "oklch(49% 0.034 264)",
+          "oklch(61% 0.034 264)",
+          "oklch(72% 0.034 264)",
+          "oklch(84% 0.034 264)",
+          "oklch(95% 0.034 264)"
+        ]
+      },
+      "green": {
+        "role": "primary",
+        "displayName": "Court Green",
+        "canonical": "oklch(48.9% 0.082 173)",
+        "tonalRamp": [
+          "oklch(15% 0.082 173)",
+          "oklch(26% 0.082 173)",
+          "oklch(38% 0.082 173)",
+          "oklch(49% 0.082 173)",
+          "oklch(61% 0.082 173)",
+          "oklch(72% 0.082 173)",
+          "oklch(84% 0.082 173)",
+          "oklch(95% 0.082 173)"
+        ]
+      },
+      "green-hover": {
+        "role": "primary",
+        "displayName": "Deep Court",
+        "canonical": "oklch(42.2% 0.071 173)",
+        "tonalRamp": [
+          "oklch(15% 0.071 173)",
+          "oklch(26% 0.071 173)",
+          "oklch(38% 0.071 173)",
+          "oklch(49% 0.071 173)",
+          "oklch(61% 0.071 173)",
+          "oklch(72% 0.071 173)",
+          "oklch(84% 0.071 173)",
+          "oklch(95% 0.071 173)"
+        ]
+      },
+      "green-soft": {
+        "role": "primary",
+        "displayName": "Pale Court",
+        "canonical": "oklch(93.9% 0.014 169)",
+        "tonalRamp": [
+          "oklch(15% 0.014 169)",
+          "oklch(26% 0.014 169)",
+          "oklch(38% 0.014 169)",
+          "oklch(49% 0.014 169)",
+          "oklch(61% 0.014 169)",
+          "oklch(72% 0.014 169)",
+          "oklch(84% 0.014 169)",
+          "oklch(95% 0.014 169)"
+        ]
+      },
+      "lamp-green": {
+        "role": "status",
+        "displayName": "Lamp Green",
+        "canonical": "oklch(75.9% 0.134 163)",
+        "tonalRamp": [
+          "oklch(15% 0.134 163)",
+          "oklch(26% 0.134 163)",
+          "oklch(38% 0.134 163)",
+          "oklch(49% 0.134 163)",
+          "oklch(61% 0.134 163)",
+          "oklch(72% 0.134 163)",
+          "oklch(84% 0.134 163)",
+          "oklch(95% 0.134 163)"
+        ]
+      },
+      "yellow": {
+        "role": "tertiary",
+        "displayName": "Ball Yellow",
+        "canonical": "oklch(80.4% 0.156 83)",
+        "tonalRamp": [
+          "oklch(15% 0.156 83)",
+          "oklch(26% 0.156 83)",
+          "oklch(38% 0.156 83)",
+          "oklch(49% 0.156 83)",
+          "oklch(61% 0.156 83)",
+          "oklch(72% 0.156 83)",
+          "oklch(84% 0.156 83)",
+          "oklch(95% 0.156 83)"
+        ]
+      },
+      "yellow-soft": {
+        "role": "tertiary",
+        "displayName": "Pale Ball",
+        "canonical": "oklch(95.7% 0.041 89)",
+        "tonalRamp": [
+          "oklch(15% 0.041 89)",
+          "oklch(26% 0.041 89)",
+          "oklch(38% 0.041 89)",
+          "oklch(49% 0.041 89)",
+          "oklch(61% 0.041 89)",
+          "oklch(72% 0.041 89)",
+          "oklch(84% 0.041 89)",
+          "oklch(95% 0.041 89)"
+        ]
+      },
+      "amber-ink": {
+        "role": "tertiary",
+        "displayName": "Amber Ink",
+        "canonical": "oklch(46.7% 0.099 74)",
+        "tonalRamp": [
+          "oklch(15% 0.099 74)",
+          "oklch(26% 0.099 74)",
+          "oklch(38% 0.099 74)",
+          "oklch(49% 0.099 74)",
+          "oklch(61% 0.099 74)",
+          "oklch(72% 0.099 74)",
+          "oklch(84% 0.099 74)",
+          "oklch(95% 0.099 74)"
+        ]
+      },
+      "red": {
+        "role": "tertiary",
+        "displayName": "Clay Red",
+        "canonical": "oklch(53.5% 0.151 32)",
+        "tonalRamp": [
+          "oklch(15% 0.151 32)",
+          "oklch(26% 0.151 32)",
+          "oklch(38% 0.151 32)",
+          "oklch(49% 0.151 32)",
+          "oklch(61% 0.151 32)",
+          "oklch(72% 0.151 32)",
+          "oklch(84% 0.151 32)",
+          "oklch(95% 0.151 32)"
+        ]
+      },
+      "lamp-red": {
+        "role": "status",
+        "displayName": "Lamp Red",
+        "canonical": "oklch(75.7% 0.147 33)",
+        "tonalRamp": [
+          "oklch(15% 0.147 33)",
+          "oklch(26% 0.147 33)",
+          "oklch(38% 0.147 33)",
+          "oklch(49% 0.147 33)",
+          "oklch(61% 0.147 33)",
+          "oklch(72% 0.147 33)",
+          "oklch(84% 0.147 33)",
+          "oklch(95% 0.147 33)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Board title, page titles and the pass month words. All caps."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section heads: Updates, season line, month name, dialog title. All caps."
+      },
+      "score": {
+        "displayName": "Score",
+        "purpose": "The Circles of Excellence score, in flip tiles."
+      },
+      "title": {
+        "displayName": "Pass Title",
+        "purpose": "Item name in the detail panel's navy header. All caps."
+      },
+      "board-row": {
+        "displayName": "Board Row",
+        "purpose": "When, Days and titles on the departures board; 20px over 1100px wide. All caps."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "Section tabs. All caps."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Column heads, legend, statuses, group headings, pass field labels. All caps, muted or dim."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Sentences, descriptions, inputs and buttons, with tabular numbers."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Item titles in ruled rows on paper."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Meta lines, timestamps, pills, hints, Month chips."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "PADEL HQ beside the ball mark; thin and widely spaced."
+      }
+    },
+    "shadows": [
+      {
+        "name": "board-slab",
+        "value": "0 2px 4px rgba(20,33,59,.12), 0 18px 40px rgba(20,33,59,.18)",
+        "purpose": "The departures board only."
+      },
+      {
+        "name": "floating-card",
+        "value": "0 1px 2px rgba(20,33,59,.06), 0 8px 28px rgba(20,33,59,.08)",
+        "purpose": "Lock-screen pass and the name dialog (--shadow)."
+      },
+      {
+        "name": "drawer",
+        "value": "-12px 0 40px rgba(20,33,59,.18)",
+        "purpose": "The detail panel, over a rgba(20,33,59,.32) scrim."
+      },
+      {
+        "name": "here-marker",
+        "value": "0 0 0 4px #FFFFFF, 0 4px 10px rgba(20,33,59,.25)",
+        "purpose": "The TODAY ball on the season line."
+      },
+      {
+        "name": "lamp-glow",
+        "value": "0 0 8px rgba(79,203,152,.6)",
+        "purpose": "Confirmed dot on the board."
+      },
+      {
+        "name": "tile-edge",
+        "value": "inset 0 1px 0 rgba(243,239,230,.07)",
+        "purpose": "Top highlight on each flip tile."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "The one easing curve for everything that moves (--ease)."
+      },
+      {
+        "name": "state",
+        "value": "0.15s",
+        "purpose": "Hover, border and color changes."
+      },
+      {
+        "name": "flap",
+        "value": "0.42s, 32ms per character (max 900ms), 28ms per row",
+        "purpose": "Flip tiles; cascade once on first load, then only when a tile's text changes."
+      },
+      {
+        "name": "blink",
+        "value": "1.6s steps(1) infinite",
+        "purpose": "Due soon and Overdue dots on the board only."
+      },
+      {
+        "name": "drawer-in",
+        "value": "0.26s, 40px from the right; scrim fade 0.2s",
+        "purpose": "Detail panel entrance."
+      },
+      {
+        "name": "month-slide",
+        "value": "0.28s, 18px",
+        "purpose": "Changing months."
+      },
+      {
+        "name": "toast",
+        "value": "0.25s rise from 16px",
+        "purpose": "Toast entrance."
+      },
+      {
+        "name": "progress",
+        "value": "0.5s",
+        "purpose": "Circles progress fill."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "all animation and transition off",
+        "purpose": "prefers-reduced-motion: reduce; flip tiles also skip in JS."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "min-width: 1101px"
+      },
+      {
+        "name": "laptop",
+        "value": "1240px"
+      },
+      {
+        "name": "tablet",
+        "value": "1100px"
+      },
+      {
+        "name": "one-column",
+        "value": "900px"
+      },
+      {
+        "name": "phone",
+        "value": "680px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action in an area: Save, Post, Open the board, Mark done.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save</button>",
+      "css": ".ds-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--line-2,#D2CBBE); background:var(--surface,#fff); color:var(--ink,#1B2A4A); border-radius:8px; padding:8px 14px; font:500 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); cursor:pointer; transition:border-color .15s, background .15s, transform .15s cubic-bezier(.16,1,.3,1); } .ds-btn:active { transform:translateY(1px); } .ds-btn:focus-visible { outline:2px solid var(--green,#1F6F5C); outline-offset:2px; } .ds-btn-primary { background:var(--green,#1F6F5C); border-color:var(--green,#1F6F5C); color:#fff; } .ds-btn-primary:hover { background:var(--green-hover,#185A4A); border-color:var(--green-hover,#185A4A); }"
+    },
+    {
+      "name": "Default and Ghost Buttons",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "White bordered button for ordinary actions; ghost for quiet ones like Cancel.",
+      "html": "<span style=\"display:inline-flex;gap:8px\"><button class=\"ds-btn2\">Edit</button><button class=\"ds-btn2 ds-ghost\">Cancel</button></span>",
+      "css": ".ds-btn2 { border:1px solid var(--line-2,#D2CBBE); background:var(--surface,#fff); color:var(--ink,#1B2A4A); border-radius:8px; padding:8px 14px; font:500 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); cursor:pointer; transition:border-color .15s, background .15s; } .ds-btn2:hover { border-color:var(--ink,#1B2A4A); } .ds-btn2:focus-visible { outline:2px solid var(--green,#1F6F5C); outline-offset:2px; } .ds-ghost { border-color:transparent; background:none; } .ds-ghost:hover { background:var(--paper-2,#EFEBE2); border-color:transparent; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "White field with a green border and pale green halo on focus.",
+      "html": "<label class=\"ds-field\">Your first name<input class=\"ds-input\" type=\"text\" placeholder=\"First name\"></label>",
+      "css": ".ds-field { display:grid; gap:6px; font:500 14px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); color:var(--ink,#1B2A4A); max-width:320px; } .ds-input { width:100%; border:1px solid var(--line-2,#D2CBBE); border-radius:8px; padding:9px 11px; background:var(--surface,#fff); font:400 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); color:var(--text,#25282E); transition:border-color .15s, box-shadow .15s; } .ds-input::placeholder { color:#737887; } .ds-input:focus { outline:none; border-color:var(--green,#1F6F5C); box-shadow:0 0 0 3px var(--green-soft,#E2EEE9); }"
+    },
+    {
+      "name": "Section Tabs",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Big Shoulders capital tabs; the current one gets a green underline; a yellow counter marks changes.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"ds-tab\" aria-current=\"page\" href=\"#\">Board <span class=\"ds-count ds-hot\">3</span></a><a class=\"ds-tab\" href=\"#\">Month</a><a class=\"ds-tab\" href=\"#\">Circles</a></nav>",
+      "css": ".ds-tabs { display:flex; gap:2px; background:var(--surface,#fff); border-bottom:1px solid var(--line,#E4DFD4); padding:0 12px; } .ds-tab { display:flex; align-items:center; gap:7px; padding:12px 11px 10px; border-bottom:2px solid transparent; color:var(--muted,#5C6170); text-decoration:none; font:600 15px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.07em; text-transform:uppercase; transition:color .15s, border-color .15s; } .ds-tab:hover { color:var(--ink,#1B2A4A); } .ds-tab:focus-visible { outline:2px solid var(--green,#1F6F5C); outline-offset:2px; } .ds-tab[aria-current=page] { color:var(--ink,#1B2A4A); border-bottom-color:var(--green,#1F6F5C); } .ds-count { font:600 11px/1 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); letter-spacing:0; background:var(--paper-2,#EFEBE2); color:var(--muted,#5C6170); border-radius:99px; padding:3px 6px; } .ds-hot { background:var(--yellow,#F0B429); color:var(--board,#14213B); }"
+    },
+    {
+      "name": "Certainty Pills",
+      "kind": "chip",
+      "refersTo": "pill-confirmed",
+      "description": "How sure a date is, on paper surfaces; plus the yellow New pill for changed items.",
+      "html": "<span style=\"display:flex;gap:6px;flex-wrap:wrap\"><span class=\"ds-pill ds-conf\">Confirmed</span><span class=\"ds-pill ds-proj\">Projected</span><span class=\"ds-pill ds-teach\">From teacher</span><span class=\"ds-pill ds-quiet\">Our target</span><span class=\"ds-pill ds-new\">New</span><span class=\"ds-pill ds-none\">Unassigned</span></span>",
+      "css": ".ds-pill { display:inline-flex; align-items:center; border-radius:99px; padding:2px 9px; font:500 12px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); border:1px solid transparent; white-space:nowrap; } .ds-conf { background:var(--green-soft,#E2EEE9); color:var(--green,#1F6F5C); } .ds-proj { background:var(--yellow-soft,#FCF0D2); color:var(--amber-ink,#7A5000); } .ds-teach { background:var(--ink,#1B2A4A); color:#fff; } .ds-quiet { background:var(--paper-2,#EFEBE2); color:var(--muted,#5C6170); } .ds-new { background:var(--yellow,#F0B429); color:var(--board,#14213B); font-weight:600; } .ds-none { background:transparent; color:var(--muted,#5C6170); border:1px dashed var(--line-2,#D2CBBE); }"
+    },
+    {
+      "name": "Departures Board Row",
+      "kind": "custom",
+      "refersTo": "board-row",
+      "description": "One departure: date and days in flip tiles, title in Big Shoulders capitals, status as lit letters with a lamp dot.",
+      "html": "<ol class=\"ds-board\"><li class=\"ds-dep\"><span class=\"ds-flaps\"><i>J</i><i>U</i><i>N</i><b></b><i>1</i><i>2</i></span><span class=\"ds-flaps ds-in\"><i>1</i><i>2</i></span><span class=\"ds-title\">Sample deadline<small><em>Updated</em>Deadline</small></span><span class=\"ds-st ds-conf\"><span class=\"ds-dot\"></span>Confirmed</span></li><li class=\"ds-dep\"><span class=\"ds-flaps\"><i>J</i><i>U</i><i>N</i><b></b><i>0</i><i>1</i></span><span class=\"ds-flaps ds-in\"><i>N</i><i>O</i><i>W</i></span><span class=\"ds-title\">Sample event<small>Event</small></span><span class=\"ds-st ds-today\"><span class=\"ds-dot\"></span>Today</span></li></ol>",
+      "css": ".ds-board { list-style:none; margin:0; padding:0; background:var(--board,#14213B); color:var(--board-text,#F3EFE6); border-radius:14px; overflow:hidden; box-shadow:0 2px 4px rgba(20,33,59,.12), 0 18px 40px rgba(20,33,59,.18); } .ds-dep { display:grid; grid-template-columns:86px 62px minmax(0,1fr) 132px; column-gap:12px; align-items:center; min-height:54px; padding:0 22px; border-bottom:1px solid rgba(243,239,230,.09); transition:background .15s; cursor:pointer; } .ds-dep:nth-child(even) { background:var(--board-2,#182742); } .ds-dep:hover { background:#1F3052; } .ds-flaps { display:inline-flex; gap:2px; font:700 18px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.06em; } .ds-flaps i { font-style:normal; display:inline-block; min-width:.62em; text-align:center; background:var(--cell,#0A1120); border-radius:2px; padding:3px 1px 2px; position:relative; box-shadow:inset 0 1px 0 rgba(243,239,230,.07); } .ds-flaps i::after { content:''; position:absolute; left:0; right:0; top:50%; height:1px; background:rgba(0,0,0,.45); } .ds-flaps b { min-width:.3em; } .ds-dep:first-child .ds-flaps i { color:var(--yellow,#F0B429); } .ds-in { color:var(--yellow,#F0B429); } .ds-title { display:block; padding:9px 0; font:700 18px/1.15 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.04em; text-transform:uppercase; } .ds-title small { display:flex; gap:8px; align-items:center; margin-top:3px; font:400 12px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); letter-spacing:0; text-transform:none; color:var(--board-dim,#A3AEC4); } .ds-title em { font:700 11px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); font-style:normal; letter-spacing:.12em; text-transform:uppercase; padding:3px 5px 2px; border-radius:3px; background:var(--yellow,#F0B429); color:var(--board,#14213B); } .ds-st { display:flex; align-items:center; gap:8px; justify-self:start; font:700 15px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; } .ds-dot { width:8px; height:8px; border-radius:50%; } .ds-conf { color:var(--lamp-green,#4FCB98); } .ds-conf .ds-dot { background:var(--lamp-green,#4FCB98); box-shadow:0 0 8px rgba(79,203,152,.6); } .ds-today { color:var(--board,#14213B); background:var(--yellow,#F0B429); padding:5px 8px 4px; border-radius:4px; } .ds-today .ds-dot { background:var(--board,#14213B); }"
+    },
+    {
+      "name": "Ruled Row",
+      "kind": "card",
+      "refersTo": "ruled-row",
+      "description": "Lists on paper are hairline-ruled rows in one white panel, never separate cards.",
+      "html": "<ul class=\"ds-ruled\"><li class=\"ds-rrow\"><span class=\"ds-tick\" role=\"checkbox\" aria-checked=\"true\">&#10003;</span><span><b>Sample to-do</b><span class=\"ds-desc\">A short description.</span></span><span class=\"ds-due\">JUN 8 · IN 7 DAYS</span></li><li class=\"ds-rrow ds-lit\"><span class=\"ds-tick\" role=\"checkbox\" aria-checked=\"false\"></span><span><b>Another sample to-do <em>New</em></b></span><span class=\"ds-due ds-late\">MAY 30 · LATE</span></li></ul>",
+      "css": ".ds-ruled { list-style:none; margin:0; padding:0; background:var(--surface,#fff); border:1px solid var(--line,#E4DFD4); border-radius:14px; overflow:hidden; font:400 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); } .ds-rrow { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:start; padding:12px 16px; border-bottom:1px solid var(--line,#E4DFD4); transition:background .15s; } .ds-rrow:last-child { border-bottom:0; } .ds-rrow:hover { background:var(--row-hover,#FBFAF6); } .ds-lit { background:var(--yellow-soft,#FCF0D2); } .ds-rrow b { font-weight:600; color:var(--ink,#1B2A4A); } .ds-rrow em { font-style:normal; font-size:12px; font-weight:600; background:var(--yellow,#F0B429); color:var(--board,#14213B); border-radius:99px; padding:2px 9px; margin-left:6px; } .ds-desc { display:block; color:var(--muted,#5C6170); font-size:13px; margin-top:3px; } .ds-tick { width:22px; height:22px; border-radius:6px; border:1.5px solid var(--line-2,#D2CBBE); background:var(--surface,#fff); display:grid; place-items:center; color:#fff; font-size:13px; } .ds-tick[aria-checked=true] { background:var(--green,#1F6F5C); border-color:var(--green,#1F6F5C); } .ds-due { font:700 15px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.06em; text-transform:uppercase; color:var(--amber-ink,#7A5000); white-space:nowrap; } .ds-late { color:var(--red,#B4432F); }"
+    },
+    {
+      "name": "Detail Panel Pass",
+      "kind": "custom",
+      "refersTo": "drawer-head",
+      "description": "The item opened as a boarding pass: navy header, two-column label and value fields, dashed perforation.",
+      "html": "<div class=\"ds-pass\"><div class=\"ds-pass-head\">Sample event</div><div class=\"ds-segs\"><div><span class=\"ds-lbl\">When</span><span class=\"ds-val\">JUN 12</span></div><div><span class=\"ds-lbl\">In</span><span class=\"ds-val\">12 days</span></div><div><span class=\"ds-lbl\">Team</span><span class=\"ds-val\">All-firm</span></div><div><span class=\"ds-lbl\">Date is</span><span class=\"ds-val ds-amber\">Projected</span></div></div><p class=\"ds-help\">Guessed from last season. Check again when the date is published.</p></div>",
+      "css": ".ds-pass { max-width:420px; background:var(--surface,#fff); border:1px solid var(--line,#E4DFD4); box-shadow:-12px 0 40px rgba(20,33,59,.18); font:400 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); } .ds-pass-head { background:var(--board,#14213B); color:var(--board-text,#F3EFE6); padding:18px 22px 16px; font:700 26px/1.08 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.03em; text-transform:uppercase; } .ds-segs { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px dashed var(--line,#E4DFD4); } .ds-segs > div { padding:12px 14px 12px 22px; border-bottom:1px solid var(--line,#E4DFD4); } .ds-segs > div:nth-child(odd) { border-right:1px solid var(--line,#E4DFD4); } .ds-lbl { display:block; font:600 12px/1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.12em; text-transform:uppercase; color:var(--muted,#5C6170); } .ds-val { display:block; margin-top:6px; font:700 20px/1.1 var(--board-font, \"Board\", \"Arial Narrow\", sans-serif); letter-spacing:.04em; text-transform:uppercase; color:var(--ink,#1B2A4A); } .ds-amber { color:var(--amber-ink,#7A5000); } .ds-help { margin:14px 22px 18px; font-size:13px; color:var(--muted,#5C6170); }"
+    },
+    {
+      "name": "Pinned Update Strip",
+      "kind": "custom",
+      "refersTo": "update-strip",
+      "description": "The newest class update across the top of Home, with a yellow icon stub (an icon cell, not a stripe).",
+      "html": "<div class=\"ds-alert\"><span class=\"ds-stub\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10v4h3l6 4V6L7 10H4zM16.5 9.5a3.5 3.5 0 0 1 0 5M19 7a7 7 0 0 1 0 10\"/></svg></span><div class=\"ds-alert-body\"><div class=\"ds-alert-text\">Sample class update.</div><div class=\"ds-alert-meta\">Latest update · 2 hours ago</div></div></div>",
+      "css": ".ds-alert { display:grid; grid-template-columns:52px 1fr; min-height:58px; background:var(--surface,#fff); border:1px solid var(--line-2,#D2CBBE); border-radius:10px; overflow:hidden; font:400 15px/1.5 var(--sans,\"Helvetica Neue\",Helvetica,Arial,sans-serif); } .ds-stub { background:var(--yellow,#F0B429); color:var(--board,#14213B); display:grid; place-items:center; } .ds-alert-body { padding:10px 14px; align-self:center; } .ds-alert-text { color:var(--ink,#1B2A4A); font-weight:500; } .ds-alert-meta { font-size:12px; color:var(--muted,#5C6170); margin-top:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Departures Board",
+    "overview": "The whole site is a train station departures board for the firm's year. Every deadline, event and to-do is a departure, ranked by how soon it leaves. The home screen is one deep navy board with warm white capital letters, each letter sitting in its own little flip tile, and the tiles flip when something changes. Around that one board everything else is calm: warm off-white paper, white panels, thin hairlines, and plain Helvetica Neue for anything you read as a sentence or type into a box.\n\nThe second idea is the boarding pass. The lock screen is a ticket with a perforated tear line, and the detail panel that slides in from the right is laid out like a pass: a navy header with the item's name, then a grid of small labeled fields (When, In, Team, Date is). Colors carry meaning, never decoration. Green means confirmed or \"go\", yellow means look at this now (new, changed, due soon, today), red means late. The look follows the firm's class deck and booth: warm off-white, court green, navy and padel-ball yellow, clean like an architect's model.\n\nThe density is \"glanceable between classes\". The board shows 12 departures on a laptop and 6 on a phone, lists are ruled rows rather than cards, and the answer to \"what's next, what's mine, what changed\" sits in the first screen.",
+    "keyCharacteristics": [
+      "One navy departures board per screen, everything else on warm paper.",
+      "Two typefaces with strict jobs: Big Shoulders capitals for the board and labels, Helvetica Neue for reading and typing.",
+      "Every letter on the board sits in its own flip tile and only flips when its text changes.",
+      "Status is told by colored letters and a small lamp dot; only Today gets a filled block.",
+      "Lists are ruled rows with hairlines, not stacks of cards.",
+      "Ticket details: perforations, notches, dashed route lines, a navy pass header."
+    ],
+    "rules": [
+      {
+        "name": "The Yellow Means Look Rule",
+        "body": "Ball Yellow only marks things that need your eyes now: new, changed, due soon, today, the pinned update, the clock, the Gold goal. If nothing about it is urgent or new, it is not yellow.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Board Rule",
+        "body": "Navy is the board. Use it for the board and for headers that copy the board or the pass, never as a page background or for ordinary cards.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lamps Stay on Navy Rule",
+        "body": "Lamp Green and Lamp Red only appear on navy. On paper, use Court Green and Clay Red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Say How Sure Rule",
+        "body": "Every date shown anywhere carries its certainty color. A guess never looks like a fact.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Big Shoulders is always capitals and always letterspaced: it is for the board, labels, dates, counts and headings. Helvetica Neue is for anything you read as a sentence or type into a field, and it is never set in spaced capitals. The one exception is the wordmark.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Titles Rule",
+        "body": "An item's title is Big Shoulders when it sits on navy (the board, the detail panel header) and Helvetica Neue 600 when it sits on paper (ruled rows, chips). Same item, the surface decides.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Panels on paper never get a shadow. If something needs to stand out on paper, give it a hairline or a status color, not a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep exactly one navy departures board per screen and let everything else sit on Warm Paper with white panels and hairlines.",
+      "**Do** put every character on the board in its own flip tile, and only flip a tile when its text changes.",
+      "**Do** show every date's certainty with its status color (Confirmed, Projected, From teacher, Our target), on the board and on paper.",
+      "**Do** mark changed items by lighting them: yellow letters and a NEW or UPDATED tag on the board, Pale Ball and a \"New\" pill on paper.",
+      "**Do** use ruled rows with hairlines for every list, with the checkbox on the left and due date and owner on the right.",
+      "**Do** use Big Shoulders capitals for board text, labels, dates and headings, and Helvetica Neue for sentences and anything typed.",
+      "**Do** use Amber Ink, not Ball Yellow, for yellow-family text on paper.",
+      "**Do** extend small tap targets invisibly instead of making the box bigger: the checkbox and season stops reach 44px, and icon buttons on the update strip and posts are 40px.",
+      "**Do** use the shared `--ease` curve and switch all motion off under reduced motion."
+    ],
+    "donts": [
+      "**Don't** add colored side stripes (a thick colored left or right border, or a colored bar down a row's edge) to rows, cards or alerts. Changed rows light their letters instead. The pinned update's yellow icon stub is a 52px icon cell, not a stripe, and it belongs only to class updates.",
+      "**Don't** put a small label above a heading. The heading is the label. Boarding-pass field labels over their values (When, In, Team) are fine: they label data, not headings.",
+      "**Don't** give any board status a filled block except Today and On now. Due soon and Overdue are colored letters with a blinking dot.",
+      "**Don't** tint whole board rows yellow or any other color; tints turn muddy on navy.",
+      "**Don't** use navy for page backgrounds or ordinary cards, or put a shadow on panels that sit on paper.",
+      "**Don't** use Lamp Green or Lamp Red on paper, or Court Green and Clay Red as text on navy.",
+      "**Don't** set sentences, descriptions or form fields in Big Shoulders, and don't letterspace Helvetica in capitals (except the wordmark).",
+      "**Don't** make anything else blink, or replay the flip cascade when someone changes a filter.",
+      "**Don't** add new hex colors in a rule; add a variable to `:root` and use it.",
+      "**Don't** use VE logos or official marks anywhere."
+    ]
+  }
+}

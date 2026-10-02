@@ -8,17 +8,17 @@ const DEPTS = [
   { id: 'tech', name: 'Technology', code: 'Tech', blurb: 'The free scorer, the website and store, and the tech competitions.' },
   { id: 'finance', name: 'Finance & Compliance', code: 'Finance', blurb: 'Prices, the Numbers Ledger, books, payroll and taxes, and the rules and trademark checks.' },
   { id: 'sales', name: 'Sales & Marketing', code: 'Sales', blurb: 'The catalog, buyers, the sales pitch, branding, video, newsletter and social.' },
-  { id: 'firm', name: 'All-firm', code: 'All firm', blurb: "The business plan, Ms. Garrison's questions, trade shows, trips and people." },
+  { id: 'firm', name: 'All-firm', code: 'All firm', blurb: 'The business plan, questions for our teacher, trade shows, trips and people.' },
 ];
 const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '' };
 
 const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone' };
-const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From Ms. Garrison', internal: 'Our target', nodate: 'No date yet' };
+const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From our teacher', internal: 'Our target', nodate: 'No date yet' };
 const BOARD_STATUS = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From teacher', internal: 'Our target', nodate: 'No date' };
 const STATUS_HELP = {
   confirmed: "VE's own site lists this date for 2026–27.",
-  projected: "Guessed from last season's date. Confirm with Ms. Garrison before relying on it.",
-  teacher: 'Ms. Garrison gave us this in class.',
+  projected: "Guessed from last season's date. Confirm with our teacher before relying on it.",
+  teacher: 'Our teacher gave us this in class.',
   internal: 'A target our firm set for itself. It can move.',
   nodate: 'No date found anywhere yet.',
 };
@@ -103,6 +103,7 @@ function ago(iso) {
 }
 function safeLink(src) {
   if (!src) return '';
+  src = String(src);
   if (/^https?:\/\//i.test(src)) return `<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(src.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a>`;
   return esc(src);
 }
@@ -199,7 +200,7 @@ let lastData = '';
 async function refresh(quiet) {
   try {
     const data = await api('/api/data');
-    const raw = JSON.stringify(data);
+    const raw = JSON.stringify(data) + todayKey(); // a new day repaints even if nothing else changed
     if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
     S.events = data.events || []; S.tasks = data.tasks || []; S.coe = data.coe || []; S.posts = data.posts || []; S.log = data.log || [];

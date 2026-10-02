@@ -8,6 +8,6 @@ export default async function handler(req, res) {
     if (!data || typeof data !== 'object') return send(res, 400, { error: 'That file is not starter data.' });
     return send(res, 200, await importItems(data, who));
   } catch (e) {
-    return send(res, 500, { error: e.message });
+    return send(res, e instanceof SyntaxError ? 400 : 500, { error: e instanceof SyntaxError ? 'That request was not valid JSON.' : e.message });
   }
 }

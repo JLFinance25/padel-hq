@@ -5,7 +5,7 @@
 
 function taskRowHtml(t) {
   const n = daysUntil(t.due);
-  const cls = t.done ? '' : n !== null && n < 0 ? 'overdue' : n !== null && n <= 7 ? 'soon' : '';
+  const cls = t.done ? '' : n !== null && n < 0 ? 'overdue' : n !== null && n <= 3 ? 'soon' : '';
   const coe = t.coe && findItem('coe', t.coe);
   const lit = isLit('tasks', t);
   return `<li class="rrow${t.done ? ' is-done' : ''}${lit ? ' lit' : ''}">
@@ -134,9 +134,9 @@ function viewMonth() {
     </div>
     ${undatedEvents.length || undatedTasks.length ? `<section id="nodate" class="nodate" tabindex="-1">
       <h2 class="group-title" style="margin-top:30px">No date yet · ${undatedEvents.length + undatedTasks.length}</h2>
-      <p class="hint" style="font-size:14px;margin:-2px 0 10px">Dates nobody has found yet. Ask Ms. Garrison, then give each one a date so it shows on the board.</p>
+      <p class="hint" style="font-size:14px;margin:-2px 0 10px">Dates nobody has found yet. Ask our teacher, then give each one a date so it shows on the board.</p>
       ${undatedEvents.length ? `<ul class="ruled">${undatedEvents.map(eventRowHtml).join('')}</ul>` : ''}
-      ${undatedTasks.length ? `<h3 class="group-title" style="margin-top:16px">To-dos with no due date · ${undatedTasks.length}</h3><ul class="ruled">${undatedTasks.sort((a, b) => a.dept.localeCompare(b.dept)).map(taskRowHtml).join('')}</ul>` : ''}
+      ${undatedTasks.length ? `<h3 class="group-title" style="margin-top:16px">To-dos with no due date · ${undatedTasks.length}</h3><ul class="ruled">${undatedTasks.sort((a, b) => String(a.dept || '').localeCompare(String(b.dept || ''))).map(taskRowHtml).join('')}</ul>` : ''}
     </section>` : ''}`;
 }
 
@@ -231,8 +231,9 @@ function viewCoe() {
       <div class="score">${flap('coe-score', String(standard).padStart(2, '0'))}<span class="score-of">of ${COE_TOTAL}<br>points</span></div>
       <div>
         <div class="coe-track"><div class="coe-fill" style="transform:scaleX(${Math.min(100, pct) / 100})"></div>${tiers}</div>
+        <p class="tier-key">Bronze 36 · Silver 48 · Gold 54</p>
         <p class="coe-msg">${esc(msg)}</p>
-        <p class="coe-note">Bonus points: ${bonus} of 4. Check an item off when it is submitted or finished, not when it is started. The bar uses the 60 regular points, because whether VE counts bonus points toward the percentage is unverified. Heads up: VE's page says the year totals 60, but its listed items add up to 61 (Period 5 is labeled 16 and its items add to 17). Ms. Garrison should confirm which is right.</p>
+        <p class="coe-note">Bonus points: ${bonus} of 4. Check an item off when it is submitted or finished, not when it is started. The bar uses the 60 regular points, because whether VE counts bonus points toward the percentage is unverified. Heads up: VE's page says the year totals 60, but its listed items add up to 61 (Period 5 is labeled 16 and its items add to 17). Our teacher should confirm which is right.</p>
       </div>
     </section>
     ${S.coe.length === 0 ? '<p class="empty"><b>The checklist is empty.</b>Load the starter data from the Log tab.</p>' : ''}

@@ -117,6 +117,13 @@ export function cleanWho(who) {
   return String(who || 'Someone').replace(/[<>]/g, '').trim().slice(0, 40) || 'Someone';
 }
 
+const set = (...xs) => Object.fromEntries(xs.map((x) => [x, true]));
+const ALLOWED = {
+  dept: set('racquets', 'apparel', 'tech', 'finance', 'sales', 'firm'),
+  kind: set('deadline', 'competition', 'tradeshow', 'trip', 'event', 'internal'),
+  status: set('confirmed', 'projected', 'teacher', 'internal', 'nodate'),
+};
+
 export function checkItem(collection, item) {
   if (!COLLECTIONS.includes(collection)) return 'Unknown list.';
   if (!item || typeof item !== 'object' || Array.isArray(item)) return 'Missing item.';
@@ -126,9 +133,22 @@ export function checkItem(collection, item) {
   for (const k of ['date', 'end', 'due']) {
     const v = item[k];
     if (v === undefined || v === null || v === '') continue;
-    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return `The ${k === 'end' ? 'end date' : 'date'} must look like 2026-10-22.`;
-    const y = Number(v.slice(0, 4));
-    if (y < 2024 || y > 2030) return `The ${k === 'end' ? 'end date' : 'date'} has to be between 2024 and 2030.`;
+    const word = k === 'end' ? 'end date' : 'date';
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return `The ${word} must look like 2026-10-22.`;
+    const [y, m, d] = v.split('-').map(Number);
+    const real = new Date(Date.UTC(y, m - 1, d));
+    if (real.getUTCFullYear() !== y || real.getUTCMonth() !== m - 1 || real.getUTCDate() !== d) return `The ${word} isn't a real day.`;
+    if (y < 2024 || y > 2030) return `The ${word} has to be between 2024 and 2030.`;
+  }
+  for (const k of ['desc', 'source', 'owner', 'notes', 'short', 'by', 'createdAt']) {
+    if (item[k] !== undefined && item[k] !== null && typeof item[k] !== 'string') return `“${k}” must be text.`;
+  }
+  if ('done' in item && typeof item.done !== 'boolean') return '“done” must be true or false.';
+  if (collection !== 'posts') {
+    if (!Object.hasOwn(ALLOWED.dept, item.dept)) return 'Pick one of the six teams.';
+    if (collection === 'events' && item.kind !== undefined && !Object.hasOwn(ALLOWED.kind, item.kind)) return 'Unknown kind of calendar item.';
+    if (collection === 'events' && item.status !== undefined && !Object.hasOwn(ALLOWED.status, item.status)) return 'Unknown date status.';
+    if (collection === 'coe' && item.points !== undefined && typeof item.points !== 'number') return 'Points must be a number.';
   }
   if (item.date && item.end && item.end < item.date) return 'The end date is before the start date.';
   return null;
@@ -320,8 +340,7 @@ export async function countTry(req) {
     memTries.set(key, fresh);
     return fresh.n;
   }
-  const [n] = await redis([['INCR', key]]);
-  if (Number(n) === 1) await redis([['EXPIRE', key, '600']]);
+  const [n] = await redis([['INCR', key], ['EXPIRE', key, '600']]);
   return Number(n);
 }
 export async function clearTries(req) {

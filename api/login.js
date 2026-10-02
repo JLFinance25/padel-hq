@@ -15,6 +15,6 @@ export default async function handler(req, res) {
     await clearTries(req);
     return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req) });
   } catch (e) {
-    return send(res, 500, { error: e.message });
+    return send(res, e instanceof SyntaxError ? 400 : 500, { error: e instanceof SyntaxError ? 'That request was not valid JSON.' : e.message });
   }
 }

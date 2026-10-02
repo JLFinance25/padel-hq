@@ -52,9 +52,9 @@ $('#me-btn').addEventListener('click', () => {
   dlg.showModal();
   $('#name-input').select();
 });
+$('#name-cancel').addEventListener('click', () => $('#name-dialog').close());
 $('#name-form').addEventListener('submit', (e) => {
   const n = $('#name-input').value.trim().slice(0, 40);
-  if (e.submitter?.value === 'cancel') return;
   if (!n) { e.preventDefault(); $('#name-input').focus(); return; }
   S.me = n; store('phq_me', n); paintMe(); render();
   toast(`Your changes will show as ${n}`);
@@ -66,7 +66,7 @@ $('#name-form').addEventListener('submit', (e) => {
 function focusKey(el) {
   if (!el || el === document.body) return null;
   if (el.id) return '#' + CSS.escape(el.id);
-  for (const a of ['data-open', 'data-tick', 'data-day']) if (el.hasAttribute(a)) return `[${a}="${CSS.escape(el.getAttribute(a))}"]` + (a === 'data-day' ? '.dnum' : '');
+  for (const a of ['data-open', 'data-tick', 'data-day']) if (el.hasAttribute(a)) return `${el.tagName.toLowerCase()}${el.classList[0] ? '.' + CSS.escape(el.classList[0]) : ''}[${a}="${CSS.escape(el.getAttribute(a))}"]`;
   if (el.dataset.act) return `[data-act="${CSS.escape(el.dataset.act)}"]` + (el.dataset.v ? `[data-v="${CSS.escape(el.dataset.v)}"]` : '') + (el.dataset.id ? `[data-id="${CSS.escape(el.dataset.id)}"]` : '');
   if (el.matches('a[href]')) return `a[href="${CSS.escape(el.getAttribute('href'))}"]`;
   return null;
@@ -143,7 +143,10 @@ function render() {
     el.value = k.value;
     if (k.open) el.closest('form')?.classList.add('open');
     if (k.id === 'post-text') { const cc = el.closest('form')?.querySelector('.charcount'); if (cc) cc.textContent = `${k.value.length} / 280`; }
+    if (document.activeElement === el || fk === '#' + k.id) { el.focus({ preventScroll: true }); try { el.setSelectionRange(k.at, k.at); } catch { /* date inputs */ } }
   }
+  const pt = document.getElementById('post-text');
+  if (pt && !pt.value && S.postDraft) { pt.value = S.postDraft; pt.closest('form').classList.add('open'); const cc = pt.closest('form').querySelector('.charcount'); if (cc) cc.textContent = `${S.postDraft.length} / 280`; }
   const sm = $('#linemap-scroll');
   if (sm) {
     if (mapScroll !== undefined) sm.scrollLeft = mapScroll;
@@ -184,6 +187,14 @@ document.addEventListener('click', async (e) => {
     case 'toggle-late': S.showLate = !S.showLate; render(); break;
     case 'older-posts': S.olderPosts = !S.olderPosts; render(); break;
     case 'seen-all': markAllSeen(); renderTabs(); render(); toast('All caught up'); $('#updates-title')?.focus(); break;
+    case 'take': {
+      const it = currentItem();
+      if (!it) break;
+      if (!S.me) { toast('Set your name at the top right first', true); break; }
+      const owner = it.owner ? `${it.owner}, ${S.me}` : S.me;
+      try { await updateItem('tasks', it.id, { owner }); paintDrawer(); toast(`Assigned to ${S.me}. It's under Mine now.`); $('#drawer [data-act=edit]')?.focus(); } catch { /* shown */ }
+      break;
+    }
     case 'to-updates': e.preventDefault(); $('#updates')?.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' }); break;
     case 'to-nodate':
       e.preventDefault();
@@ -191,7 +202,7 @@ document.addEventListener('click', async (e) => {
       setTimeout(() => { const n = $('#nodate'); if (n) { n.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' }); n.focus({ preventScroll: true }); } }, 80);
       break;
     case 'map-day': location.hash = 'month'; setTimeout(() => pickDay(el.dataset.day, true), 30); break;
-    case 'post-cancel': { const f = el.closest('form'); f.reset(); f.classList.remove('open'); f.querySelector('.charcount').textContent = '0 / 280'; break; }
+    case 'post-cancel': { S.postDraft = ''; const f = el.closest('form'); f.reset(); f.classList.remove('open'); f.querySelector('.charcount').textContent = '0 / 280'; break; }
     case 'post-del': { const p = findItem('posts', el.dataset.id); if (p) removeItem('posts', p, 'Remove'); break; }
     case 'prev': shiftMonth(-1); break;
     case 'next': shiftMonth(1); break;
@@ -200,9 +211,9 @@ document.addEventListener('click', async (e) => {
     case 'new-event': openDrawer('events', null, true); break;
     case 'tf': S.taskFilter = el.dataset.v; if (S.taskFilter === 'mine' && !S.me) toast('Set your name at the top right first', true); render(); break;
     case 'toggle-done': S.showDone = !S.showDone; render(); break;
-    case 'close': closeDrawer(); break;
-    case 'edit': if (!drawerState) break; drawerState.editing = true; paintDrawer(); setTimeout(() => $('#drawer [name=title]')?.focus(), 30); break;
-    case 'cancel-edit': if (!drawerState) break; drawerState.editing = false; paintDrawer(); $('#drawer [data-act=edit]')?.focus(); break;
+    case 'close': closeDrawerSafely(); break;
+    case 'edit': if (!drawerState) break; drawerState.editing = true; drawerState.snap = null; paintDrawer(); setTimeout(() => $('#drawer [name=title]')?.focus(), 30); break;
+    case 'cancel-edit': if (!drawerState) break; if (drawerIsDirty() && !confirm('Discard your unsaved changes?')) break; drawerState.editing = false; drawerState.snap = null; paintDrawer(); $('#drawer [data-act=edit]')?.focus(); break;
     case 'skip': $('#main').focus(); $('#main').scrollIntoView(); break;
     case 'save': break; // the Save button submits the form; see the submit handler
     case 'delete': { const it = currentItem(); if (it && await removeItem(drawerState.collection, it)) closeDrawer(); break; }
@@ -226,7 +237,7 @@ document.addEventListener('change', (e) => {
 // The post box grows when you start typing and counts characters.
 document.addEventListener('focusin', (e) => { if (e.target.id === 'post-text') e.target.closest('form').classList.add('open'); });
 document.addEventListener('input', (e) => {
-  if (e.target.id === 'post-text') e.target.closest('form').querySelector('.charcount').textContent = `${e.target.value.length} / 280`;
+  if (e.target.id === 'post-text') { S.postDraft = e.target.value; e.target.closest('form').querySelector('.charcount').textContent = `${e.target.value.length} / 280`; }
 });
 
 document.addEventListener('submit', async (e) => {
@@ -256,6 +267,7 @@ document.addEventListener('submit', async (e) => {
     if (!S.me) { toast('Set your name at the top right first, so people know who posted', true); return; }
     // Clear the box before saving, so a second click can't post it twice.
     form.reset(); form.classList.remove('open'); form.querySelector('.charcount').textContent = '0 / 280';
+    S.postDraft = '';
     const id = newId(text);
     try {
       await createItem('posts', { id, title: text.slice(0, 280), by: S.me, createdAt: new Date().toISOString() });
@@ -263,16 +275,18 @@ document.addEventListener('submit', async (e) => {
       document.getElementById('post-' + id)?.focus();
     } catch {
       const ta = $('#post-text');
+      S.postDraft = text;
       if (ta) { ta.value = text; ta.closest('form').classList.add('open'); ta.focus(); }
     }
   }
   if (e.target.id === 'edit-form') { e.preventDefault(); saveDrawer(); }
 });
 
-$('#scrim').addEventListener('click', closeDrawer);
+$('#scrim').addEventListener('click', closeDrawerSafely);
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open) { closeDrawer(); return; }
+  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
+  if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return; // leave browser shortcuts (like Back) alone
   if (drawerState || S.view !== 'month') return;
   const active = document.activeElement;
   // On a day: arrows move between days (up/down = a week), crossing into the next month when needed.

@@ -94,12 +94,13 @@ function viewBoard() {
   const rest = all.filter((r) => !(r.c === 'tasks' && r.date < todayKey()));
   const limit = boardRows();
   const shown = S.boardFull ? rest : rest.slice(0, limit);
-  const undated = S.events.filter((e) => !e.date).length + S.tasks.filter((t) => !t.due && !t.done).length;
+  const teamOk = (x) => S.boardTeam === 'all' || x.dept === S.boardTeam;
+  const undated = S.events.filter((e) => !e.date && teamOk(e)).length + S.tasks.filter((t) => !t.due && !t.done && teamOk(t)).length;
   const posts = [...S.posts].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const latest = posts[0];
   const seg = ([id, label]) => `<button data-act="bf" data-v="${id}" aria-pressed="${S.boardFilter === id}">${label}</button>`;
 
-  const strip = latest ? `<div class="alert" role="note">
+  const strip = latest ? `<div class="alert" role="note" id="strip-post" tabindex="-1">
       <span class="alert-icon">${icon('alert')}</span>
       <div class="alert-body"><div class="alert-text">${esc(latest.title)}</div>
         <div class="alert-meta">Latest update · ${esc(latest.by || latest.updatedBy || 'Someone')} · ${esc(ago(latest.createdAt || latest.updatedAt))}</div></div>
@@ -143,7 +144,8 @@ function viewBoard() {
     </section>`;
 
   setTimeout(() => { flapArmed = true; }, 0);
-  return `${strip}<div class="home">${board}${updatesRail(posts.slice(1))}</div>${lineMap()}`;
+  // The strip shows on phones (where Updates sits below the board); on wide screens the Updates list beside the board has every post.
+  return `${strip}<div class="home">${board}${updatesRail(posts)}</div>${lineMap()}`;
 }
 
 // ---------- Updates rail ----------
@@ -165,7 +167,7 @@ function updatesRail(posts) {
   const showPosts = S.olderPosts ? posts : posts.slice(0, 3);
   return `<aside class="updates" id="updates" aria-labelledby="updates-title">
       <div class="updates-head">
-        <h2 id="updates-title">Updates ${newCount ? `<span class="newcount">${newCount} new</span>` : ''}</h2>
+        <h2 id="updates-title" tabindex="-1">Updates ${newCount ? `<span class="newcount">${newCount} new</span>` : ''}</h2>
         ${newCount ? '<button class="btn btn-ghost btn-sm" data-act="seen-all">Mark all seen</button>' : ''}
       </div>
       <div class="updates-scroll" id="updates-scroll">
@@ -205,7 +207,7 @@ function lineMap() {
   for (const e of evs) {
     const x = pos(e.date);
     const g = groups[groups.length - 1];
-    if (g && x - g.x0 < 2.5) g.list.push(e); else groups.push({ x0: x, list: [e] });
+    if (g && x - g.last < 3.6) { g.list.push(e); g.last = x; } else groups.push({ x0: x, last: x, list: [e] });
   }
   const majorRank = (e) => (e.kind === 'tradeshow' ? 0 : e.kind === 'trip' ? 1 : /submission deadline/i.test(e.title) ? 2 : 9);
   let lastA = -99, lastB = -99;

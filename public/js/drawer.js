@@ -34,7 +34,9 @@ function closeDrawer() {
 function syncDrawer() {
   if (!drawerState || drawerState.editing || !drawerState.id) return;
   if (!findItem(drawerState.collection, drawerState.id)) { closeDrawer(); toast('Someone deleted that item.', true); return; }
+  const fk = $('#drawer').contains(document.activeElement) ? focusKey(document.activeElement) : null;
   paintDrawer();
+  restoreFocus(fk);
 }
 
 const currentItem = () => drawerState && drawerState.id ? findItem(drawerState.collection, drawerState.id) : null;
@@ -85,17 +87,20 @@ function paintDrawer() {
   const word = collection === 'events' ? 'calendar item' : collection === 'tasks' ? 'to-do' : 'checklist item';
 
   if (editing) {
-    const base = item || {
+    if (item && !drawerState.snap) drawerState.snap = { ...item };
+    const base = drawerState.snap || {
       ...(collection === 'events'
         ? { kind: 'deadline', status: 'internal', dept: S.monthTeam !== 'all' ? S.monthTeam : 'firm', date: S.view === 'month' && S.sel ? S.sel : todayKey() }
         : { dept: DEPTS.some((x) => x.id === S.view) ? S.view : 'firm' }),
       ...defaults,
     };
+    const shown = { ...base };
+    if (collection === 'events' && (!shown.status || shown.status === 'nodate')) shown.status = 'internal'; // undated items never pretend to be Confirmed
     const fields = fieldsFor(collection);
     let rows = '';
     for (let i = 0; i < fields.length; i++) {
-      if (fields[i].half && fields[i + 1]?.half) { rows += `<div class="two">${fieldHtml(fields[i], base[fields[i].k])}${fieldHtml(fields[i + 1], base[fields[i + 1].k])}</div>`; i++; }
-      else rows += fieldHtml(fields[i], base[fields[i].k]);
+      if (fields[i].half && fields[i + 1]?.half) { rows += `<div class="two">${fieldHtml(fields[i], shown[fields[i].k])}${fieldHtml(fields[i + 1], shown[fields[i + 1].k])}</div>`; i++; }
+      else rows += fieldHtml(fields[i], shown[fields[i].k]);
     }
     const owners = [...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean).concat(S.me ? [S.me] : []))];
     d.innerHTML = `
@@ -106,6 +111,7 @@ function paintDrawer() {
         ${item && collection !== 'coe' ? `<button class="btn btn-danger" type="button" data-act="delete">${icon('trash')}Delete</button>` : '<span></span>'}
         <span class="toolbar"><button class="btn" type="button" data-act="${item ? 'cancel-edit' : 'close'}">Cancel</button><button class="btn btn-primary" type="submit" form="edit-form" data-act="save">Save</button></span>
       </div>`;
+    drawerState.initial = formState();
     return;
   }
 
@@ -121,7 +127,7 @@ function paintDrawer() {
       + seg4('Date is', esc(STATUSES[st] || st), sCls);
   } else {
     const n = daysUntil(item.due);
-    const inCls = item.done ? 'green' : n !== null && n < 0 ? 'red' : n !== null && n <= 7 ? 'amber' : '';
+    const inCls = item.done ? 'green' : n !== null && n < 0 ? 'red' : n !== null && n <= 3 ? 'amber' : '';
     segs = seg4('Due', esc(item.due ? boardDate(item.due) : 'No date')) + seg4(item.done ? 'Status' : 'In', item.done ? 'Done' : item.due ? esc(n < 0 ? -n + (n === -1 ? ' day late' : ' days late') : n === 0 ? 'Today' : n + (n === 1 ? ' day' : ' days')) : '—', inCls)
       + seg4('Team', esc(team.name))
       + (collection === 'tasks' ? seg4('Owner', esc(item.owner || 'Nobody yet'), item.owner ? '' : 'amber') : seg4('Points', esc(item.points) + (item.bonus ? ' bonus' : '')))
@@ -147,7 +153,10 @@ function paintDrawer() {
     </div>
     <div class="drawer-foot">
       ${collection !== 'events' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : '<span></span>'}
-      <button class="btn" data-act="edit">${icon('edit')}Edit</button>
+      <span class="toolbar">
+        ${collection === 'tasks' && !item.done && !ownerMatches(item.owner, S.me) ? `<button class="btn" data-act="take">${icon('user')}Assign to me</button>` : ''}
+        <button class="btn" data-act="edit">${icon('edit')}Edit</button>
+      </span>
     </div>`;
 }
 
@@ -156,6 +165,7 @@ async function saveDrawer() {
   if (!state || state.saving) return; // no double saves
   const { collection } = state;
   const item = currentItem();
+  if (state.id && !item) { closeDrawer(); toast('Someone deleted this item while you were editing it.', true); return; }
   const form = $('#edit-form');
   const title = form.elements.title;
   if (!title.value.trim()) { title.setCustomValidity('Give it a title.'); title.reportValidity(); title.setCustomValidity(''); return; }
@@ -178,7 +188,8 @@ async function saveDrawer() {
     if (item) {
       const norm = (x) => (x === null || x === undefined ? '' : String(x));
       const changed = {};
-      for (const [k, v] of Object.entries(data)) if (norm(item[k]) !== norm(v)) changed[k] = v;
+      const was = state.snap || item;
+      for (const [k, v] of Object.entries(data)) if (norm(was[k]) !== norm(v)) changed[k] = v;
       saved = Object.keys(changed).length ? await updateItem(collection, item.id, changed) : item;
     } else {
       saved = await createItem(collection, { id: newId(data.title), done: false, createdAt: new Date().toISOString(), ...(collection === 'tasks' ? { coe: null, source: '' } : {}), ...data });
@@ -198,10 +209,22 @@ async function saveDrawer() {
 // Belt and braces: keep Tab inside the open panel even if inert isn't supported.
 document.addEventListener('keydown', (e) => {
   if (!drawerState || e.key !== 'Tab') return;
-  const f = [...$('#drawer').querySelectorAll('button, [href], input, select, textarea')].filter((x) => !x.disabled && x.offsetParent !== null);
+  const f = [...$('#drawer').querySelectorAll('button, a[href], input, select, textarea')].filter((x) => !x.disabled && x.offsetParent !== null);
   if (!f.length) return;
   const first = f[0], last = f[f.length - 1];
   if (!$('#drawer').contains(document.activeElement)) { e.preventDefault(); first.focus(); }
   else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
+
+// What the edit form currently says, to tell whether someone has typed anything.
+function formState() {
+  const f = $('#edit-form');
+  return f ? JSON.stringify([...new FormData(f).entries()]) : '';
+}
+const drawerIsDirty = () => drawerIsEditing() && !!drawerState.initial && formState() !== drawerState.initial;
+// Close the panel, but ask first if there are unsaved changes.
+function closeDrawerSafely() {
+  if (drawerIsDirty() && !confirm('Discard your unsaved changes?')) return;
+  closeDrawer();
+}
