@@ -8,7 +8,7 @@ export default async function handler(req, res) {
       const problem = checkItem(collection, item);
       if (problem) return send(res, 400, { error: problem });
       const before = await getItem(collection, item.id);
-      let action = before ? 'edited' : 'added';
+      let action = before ? 'edited' : collection === 'posts' ? 'posted' : 'added';
       if (before && 'done' in item && before.done !== item.done) action = item.done ? 'checked off' : 'unchecked';
       const saved = await saveItem(collection, item, who, action);
       return send(res, 200, { item: saved });

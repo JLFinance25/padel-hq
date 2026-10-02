@@ -5,7 +5,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const COLLECTIONS = ['events', 'tasks', 'coe'];
+// posts = the pinned announcements in the Updates panel.
+export const COLLECTIONS = ['events', 'tasks', 'coe', 'posts'];
 const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
@@ -156,7 +157,7 @@ function fileLoad() {
   try {
     return JSON.parse(fs.readFileSync(FILE, 'utf8'));
   } catch {
-    return { events: {}, tasks: {}, coe: {}, log: [] };
+    return { events: {}, tasks: {}, coe: {}, posts: {}, log: [] };
   }
 }
 
@@ -192,29 +193,32 @@ export async function loadAll() {
       events: Object.values(db.events),
       tasks: Object.values(db.tasks),
       coe: Object.values(db.coe),
+      posts: Object.values(db.posts || {}),
       log: db.log.slice(0, 100),
     };
   }
-  const [events, tasks, coe, log] = await redis([
+  const [events, tasks, coe, posts, log] = await redis([
     ['HGETALL', PREFIX + 'events'],
     ['HGETALL', PREFIX + 'tasks'],
     ['HGETALL', PREFIX + 'coe'],
+    ['HGETALL', PREFIX + 'posts'],
     ['LRANGE', LOG_KEY, '0', '99'],
   ]);
   return {
     events: parseAll(events),
     tasks: parseAll(tasks),
     coe: parseAll(coe),
+    posts: parseAll(posts),
     log: (log || []).map((x) => { try { return JSON.parse(x); } catch { return null; } }).filter(Boolean),
   };
 }
 
-function logEntry(who, action, collection, title) {
-  return { t: new Date().toISOString(), who: cleanWho(who), action, collection, title: String(title || '').slice(0, 120) };
+function logEntry(who, action, collection, title, id) {
+  return { t: new Date().toISOString(), who: cleanWho(who), action, collection, title: String(title || '').slice(0, 120), id: id || null };
 }
 
 export async function getItem(collection, id) {
-  if (usingFile()) return fileLoad()[collection][id] || null;
+  if (usingFile()) return (fileLoad()[collection] || {})[id] || null;
   const [v] = await redis([['HGET', PREFIX + collection, id]]);
   return v ? JSON.parse(v) : null;
 }
@@ -222,9 +226,10 @@ export async function getItem(collection, id) {
 export async function saveItem(collection, item, who, action) {
   item.updatedAt = new Date().toISOString();
   item.updatedBy = cleanWho(who);
-  const entry = logEntry(who, action, collection, item.title);
+  const entry = logEntry(who, action, collection, item.title, item.id);
   if (usingFile()) {
     const db = fileLoad();
+    db[collection] ||= {};
     db[collection][item.id] = item;
     db.log.unshift(entry);
     db.log = db.log.slice(0, LOG_KEEP);
@@ -240,10 +245,10 @@ export async function saveItem(collection, item, who, action) {
 }
 
 export async function deleteItem(collection, id, who, title) {
-  const entry = logEntry(who, 'deleted', collection, title || id);
+  const entry = logEntry(who, 'deleted', collection, title || id, id);
   if (usingFile()) {
     const db = fileLoad();
-    delete db[collection][id];
+    if (db[collection]) delete db[collection][id];
     db.log.unshift(entry);
     fileSave(db);
     return;
@@ -263,7 +268,8 @@ export async function importItems(data, who) {
   for (const collection of COLLECTIONS) {
     for (const item of data[collection] || []) {
       if (checkItem(collection, item)) { counts.skipped++; continue; }
-      rows.push([collection, { ...item, updatedAt: now, updatedBy: cleanWho(who) }]);
+      // importedAt lets the board tell starter data apart from real edits, so an import doesn't light every row as new.
+      rows.push([collection, { ...item, updatedAt: now, importedAt: now, updatedBy: cleanWho(who) }]);
     }
   }
   if (usingFile()) {
