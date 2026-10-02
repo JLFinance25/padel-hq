@@ -14,7 +14,7 @@ const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted
 
 const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone' };
 const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From Ms. Garrison', internal: 'Our target', nodate: 'No date yet' };
-const BOARD_STATUS = { confirmed: 'Confirmed', projected: 'Check date', teacher: 'From teacher', internal: 'Our target' };
+const BOARD_STATUS = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From teacher', internal: 'Our target', nodate: 'No date' };
 const STATUS_HELP = {
   confirmed: "VE's own site lists this date for 2026–27.",
   projected: "Guessed from last season's date. Confirm with Ms. Garrison before relying on it.",
@@ -34,13 +34,15 @@ const PERIODS = [
 ];
 const COE_TOTAL = 60;
 const TIERS = [{ id: 'bronze', name: 'Bronze', pct: 60 }, { id: 'silver', name: 'Silver', pct: 80 }, { id: 'gold', name: 'Gold', pct: 90 }];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const DATE_MIN = '2026-01-01', DATE_MAX = '2027-12-31';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isPhone = () => window.innerWidth <= 680;
 
 const S = {
   events: [], tasks: [], coe: [], posts: [], log: [],
   view: 'board', loaded: false,
-  boardFilter: 'all', boardTeam: 'all', boardFull: false, olderPosts: false,
+  boardFilter: 'dates', boardTeam: 'all', boardFull: false, showLate: false, olderPosts: false,
   month: startOfMonth(new Date()), sel: null, slide: '', monthTeam: 'all', monthTasks: false,
   taskFilter: 'all', showDone: false,
   me: store('phq_me') || '',
@@ -49,25 +51,30 @@ const S = {
 // ---------- Small helpers ----------
 
 function store(k, v) {
-  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); return v; } catch { return null; }
+  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); return v; } catch { return v === undefined ? null : v; }
 }
 const $ = (sel, el = document) => el.querySelector(sel);
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 const icon = (id, cls = 'ic') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
-function toast(msg, bad) {
+
+// Toast, optionally with one action button (used for Undo).
+function toast(msg, bad, action) {
   const t = $('#toast');
-  t.innerHTML = (bad ? '' : icon('check')) + `<span>${esc(msg)}</span>`;
-  t.className = 'toast show' + (bad ? ' bad' : '');
+  t.innerHTML = (bad ? '' : icon('check')) + `<span>${esc(msg)}</span>` + (action ? `<button class="toast-btn" type="button">${esc(action.label)}</button>` : '');
+  t.className = 'toast show' + (bad ? ' bad' : '') + (action ? ' has-action' : '');
+  if (action) t.querySelector('.toast-btn').onclick = () => { t.className = 'toast'; action.run(); };
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => (t.className = 'toast'), 2800);
+  toast.timer = setTimeout(() => (t.className = 'toast'), action ? 6500 : 2800);
 }
 function newId(title) {
   const slug = String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'item';
   return slug + '-' + Math.random().toString(36).slice(2, 7);
 }
 const sameName = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+// "Mine" = my name is one of the owners. "Maya, Sam" or "Maya & Sam" both count for Sam; "Al" doesn't match "Alex".
+const ownerMatches = (owner, me) => !!me && String(owner || '').split(/\s*(?:,|&|\/|\band\b)\s*/i).some((n) => sameName(n, me));
 
 // Dates are stored as "YYYY-MM-DD" and always read as local calendar days.
 function parseDay(s) { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
@@ -77,7 +84,7 @@ function today() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 const todayKey = () => dayKey(today());
 function daysUntil(s) { const d = parseDay(s); return d ? Math.round((d - today()) / 86400000) : null; }
 function fmt(s, opts = { weekday: 'short', month: 'short', day: 'numeric' }) { const d = parseDay(s); return d ? d.toLocaleDateString('en-US', opts) : 'No date'; }
-const boardDate = (s) => (s ? fmt(s, { month: 'short', day: 'numeric' }).toUpperCase().replace(/(\D)(\d)$/, '$1 0$2').replace(/ (\d\d)$/, ' $1') : '—');
+function boardDate(s) { const d = parseDay(s); return d ? `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}` : '—'; }
 function relDays(n) {
   if (n === null || n === undefined) return '';
   if (n === 0) return 'today';
@@ -87,6 +94,7 @@ function relDays(n) {
 }
 function ago(iso) {
   const s = (Date.now() - new Date(iso)) / 1000;
+  if (!isFinite(s)) return '';
   if (s < 60) return 'just now';
   if (s < 3600) return Math.floor(s / 60) + ' min ago';
   if (s < 86400) return Math.floor(s / 3600) + ' hr ago';
@@ -98,20 +106,24 @@ function safeLink(src) {
   if (/^https?:\/\//i.test(src)) return `<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(src.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60))}</a>`;
   return esc(src);
 }
-// Short name for tight spots (season map labels): drop "(projected)", stop at ":" or ",".
-function shortTitle(t, max = 24) {
-  let s = String(t).replace(/\s*\([^)]*\)/g, '').split(/[:,]/)[0].trim();
+// Name for tight spots (season map): the item's own short name if it has one, else a trimmed title.
+function shortTitle(item, max = 22) {
+  if (item.short) return item.short;
+  let s = String(item.title).replace(/\s*\([^)]*\)/g, '').split(/[:,]/)[0].trim();
   if (s.length <= max) return s;
   s = s.slice(0, max + 1);
   return s.slice(0, s.lastIndexOf(' ')) + '…';
 }
 
 // ---------- Flip letters ----------
-// Each character sits in its own tile. A tile set only flips when its text changed since the last paint.
+// Each character sits in its own tile. On the first paint the whole board cascades once.
+// After that, tiles only flip when their text actually changes, never just because a filter changed.
 const flapMemory = new Map();
+let flapArmed = false;
 function flap(key, text, delay = 0) {
   text = String(text).toUpperCase();
-  const go = flapMemory.get(key) !== text && !REDUCED;
+  const prev = flapMemory.get(key);
+  const go = !REDUCED && (prev === undefined ? !flapArmed : prev !== text);
   flapMemory.set(key, text);
   const tiles = [...text].map((ch, i) => (ch === ' '
     ? '<span class="fc sp"> </span>'
@@ -122,7 +134,7 @@ function flap(key, text, delay = 0) {
 // ---------- What's new for me ----------
 // "since" = when this browser first opened the app. "seen" = which version of each item I've opened.
 const NOW_ISO = new Date().toISOString();
-const SINCE = store('phq_since') || store('phq_since', NOW_ISO);
+const SINCE = store('phq_since') || store('phq_since', NOW_ISO) || NOW_ISO;
 let PREV_VISIT = store('phq_lastvisit') || SINCE;
 let seen = {};
 try { seen = JSON.parse(store('phq_seen') || '{}'); } catch { seen = {}; }
@@ -133,7 +145,10 @@ function isLit(collection, item) {
   if (sameName(item.updatedBy, S.me)) return false;
   return seen[collection + ':' + item.id] !== item.updatedAt;
 }
-const litWord = (item) => (item.createdAt && item.createdAt > SINCE ? 'New' : 'Updated');
+function litWord(collection, item) {
+  const neverOpened = !Object.hasOwn(seen, collection + ':' + item.id);
+  return neverOpened && item.createdAt && item.createdAt > SINCE ? 'New' : 'Updated';
+}
 function markSeen(collection, item) {
   if (!item) return;
   seen[collection + ':' + item.id] = item.updatedAt;
@@ -151,70 +166,8 @@ function markAllSeen() {
   store('phq_lastvisit', PREV_VISIT);
 }
 
-// ---------- Server ----------
-
-async function api(path, opts = {}) {
-  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
-  let body = {};
-  try { body = await r.json(); } catch { /* empty */ }
-  if (r.status === 401 && !path.includes('login')) { showLogin(); throw new Error(body.error || 'Please log in'); }
-  if (!r.ok) throw new Error(body.error || 'Something went wrong');
-  return body;
-}
-
-async function refresh(quiet) {
-  try {
-    const data = await api('/api/data');
-    S.events = data.events || []; S.tasks = data.tasks || []; S.coe = data.coe || []; S.posts = data.posts || []; S.log = data.log || [];
-    S.loaded = true;
-    if (!drawerIsEditing()) { renderTabs(); render(); }
-  } catch (e) {
-    if (!quiet) toast(e.message, true);
-  }
-}
-
-async function saveItem(collection, item) {
-  const list = S[collection];
-  const i = list.findIndex((x) => x.id === item.id);
-  const before = i >= 0 ? list[i] : null;
-  if (i >= 0) list[i] = item; else list.push(item);
-  renderTabs(); render();
-  try {
-    const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item, who: S.me }) });
-    const j = S[collection].findIndex((x) => x.id === saved.id);
-    if (j >= 0) S[collection][j] = saved;
-    markSeen(collection, saved);
-    refreshLogSoon();
-    return saved;
-  } catch (e) {
-    if (before) list[i] = before; else S[collection] = list.filter((x) => x.id !== item.id);
-    renderTabs(); render();
-    toast("Didn't save: " + e.message, true);
-    throw e;
-  }
-}
-
-async function removeItem(collection, item, word = 'Delete') {
-  if (!confirm(`${word} "${item.title}" for everyone? This can't be undone.`)) return false;
-  try {
-    await api(`/api/item?collection=${collection}&id=${encodeURIComponent(item.id)}&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
-    S[collection] = S[collection].filter((x) => x.id !== item.id);
-    renderTabs(); render();
-    toast(word === 'Delete' ? 'Deleted' : 'Removed');
-    refreshLogSoon();
-    return true;
-  } catch (e) {
-    toast(`Didn't ${word.toLowerCase()}: ` + e.message, true);
-    return false;
-  }
-}
-
-// The log updates on the server; pull it shortly after a change so the Updates feed shows it.
-function refreshLogSoon() { clearTimeout(refreshLogSoon.t); refreshLogSoon.t = setTimeout(() => refresh(true), 700); }
-
-const findItem = (collection, id) => (S[collection] || []).find((x) => x.id === id);
-
-// Log lines in plain words. Starter-data imports read as one line, and empty re-imports are hidden.
+// ---------- Log wording ----------
+// Starter-data imports read as one line, and empty re-imports are hidden.
 function logLines(limit) {
   return S.log.filter((l) => !/^imported 0 /.test(l.action)).slice(0, limit);
 }
@@ -223,3 +176,111 @@ function logWords(l) {
   if (m) return { action: `loaded the starter data (${m[1]} items)`, what: '' };
   return { action: l.action, what: l.collection === 'all' ? esc(l.title) : `“${esc(l.title)}”` };
 }
+// Where a log line should open, if anywhere. Posts and deleted things have no panel.
+function logTarget(l) {
+  if (l.collection === 'all' || l.collection === 'posts' || l.action === 'deleted') return null;
+  const it = l.id ? findItem(l.collection, l.id) : (S[l.collection] || []).find((x) => x.title === l.title);
+  return it ? { c: l.collection, it } : null;
+}
+const freshLog = () => logLines(100).filter((l) => l.t > PREV_VISIT && !sameName(l.who, S.me));
+
+// ---------- Server ----------
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
+  let body = {};
+  try { body = await r.json(); } catch { /* empty */ }
+  if (r.status === 401 && !path.includes('login')) { showLogin(); throw new Error(body.error || 'Please log in'); }
+  if (!r.ok) { const e = new Error(body.error || 'Something went wrong'); e.status = r.status; throw e; }
+  return body;
+}
+
+let lastData = '';
+async function refresh(quiet) {
+  try {
+    const data = await api('/api/data');
+    const raw = JSON.stringify(data);
+    if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
+    lastData = raw;
+    S.events = data.events || []; S.tasks = data.tasks || []; S.coe = data.coe || []; S.posts = data.posts || []; S.log = data.log || [];
+    S.loaded = true;
+    if (!drawerIsEditing()) { renderTabs(); render(); if (drawerState) syncDrawer(); }
+  } catch (e) {
+    if (!quiet) toast(e.message, true);
+  }
+}
+
+function putLocal(collection, item) {
+  const i = S[collection].findIndex((x) => x.id === item.id);
+  if (i >= 0) S[collection][i] = item; else S[collection].push(item);
+}
+
+// Create a new item (the whole thing).
+async function createItem(collection, item) {
+  putLocal(collection, item);
+  renderTabs(); render();
+  try {
+    const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item, who: S.me }) });
+    putLocal(collection, saved);
+    markSeen(collection, saved);
+    refreshLogSoon();
+    return saved;
+  } catch (e) {
+    S[collection] = S[collection].filter((x) => x.id !== item.id);
+    renderTabs(); render();
+    toast("Didn't save: " + e.message, true);
+    throw e;
+  }
+}
+
+// Change some fields of an existing item. Only the changed fields go to the server,
+// which merges them onto the newest saved copy, so classmates' edits aren't overwritten.
+async function updateItem(collection, id, fields) {
+  const before = findItem(collection, id);
+  if (!before) { toast('Someone deleted this item.', true); throw new Error('gone'); }
+  putLocal(collection, { ...before, ...fields });
+  renderTabs(); render();
+  try {
+    const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item: { id, ...fields }, patch: true, who: S.me }) });
+    putLocal(collection, saved);
+    markSeen(collection, saved);
+    refreshLogSoon();
+    return saved;
+  } catch (e) {
+    if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
+    renderTabs(); render();
+    toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
+    throw e;
+  }
+}
+
+// Check off or un-check, with an Undo button in the message.
+async function toggleDone(collection, id) {
+  const item = findItem(collection, id);
+  if (!item) return null;
+  const saved = await updateItem(collection, id, { done: !item.done });
+  toast(saved.done ? 'Checked off' : 'Marked not done', false, {
+    label: 'Undo',
+    run: () => updateItem(collection, id, { done: !saved.done }).then(() => toast('Undone')).catch(() => {}),
+  });
+  return saved;
+}
+
+async function removeItem(collection, item, word = 'Delete') {
+  if (!confirm(`${word} "${item.title}" for everyone? This can't be undone.`)) return false;
+  try {
+    await api(`/api/item?collection=${collection}&id=${encodeURIComponent(item.id)}&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
+  } catch (e) {
+    if (e.status !== 404) { toast(`Didn't ${word.toLowerCase()}: ` + e.message, true); return false; }
+  }
+  S[collection] = S[collection].filter((x) => x.id !== item.id);
+  renderTabs(); render();
+  toast(word === 'Delete' ? 'Deleted' : 'Removed');
+  refreshLogSoon();
+  return true;
+}
+
+// The log updates on the server; pull it shortly after a change so the Updates feed shows it.
+function refreshLogSoon() { clearTimeout(refreshLogSoon.t); refreshLogSoon.t = setTimeout(() => refresh(true), 700); }
+
+function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }

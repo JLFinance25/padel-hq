@@ -1,15 +1,22 @@
 import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, deleteItem, COLLECTIONS } from './_lib.js';
 
 export default async function handler(req, res) {
-  if (!requireLogin(req, res)) return;
   try {
+    if (!requireLogin(req, res)) return;
     if (req.method === 'POST') {
-      const { collection, item, who } = await readJson(req);
+      const body = (await readJson(req)) || {};
+      const { collection, who } = body;
+      if (!COLLECTIONS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
+      if (!body.item || typeof body.item !== 'object' || typeof body.item.id !== 'string') return send(res, 400, { error: 'Missing item.' });
+      const before = await getItem(collection, body.item.id);
+      // patch = only the fields someone changed, merged onto the latest saved copy,
+      // so an old open panel can't wipe out a classmate's newer edit.
+      if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
+      const item = body.patch ? { ...before, ...body.item } : body.item;
       const problem = checkItem(collection, item);
       if (problem) return send(res, 400, { error: problem });
-      const before = await getItem(collection, item.id);
       let action = before ? 'edited' : collection === 'posts' ? 'posted' : 'added';
-      if (before && 'done' in item && before.done !== item.done) action = item.done ? 'checked off' : 'unchecked';
+      if (before && 'done' in body.item && before.done !== item.done) action = item.done ? 'checked off' : 'unchecked';
       const saved = await saveItem(collection, item, who, action);
       return send(res, 200, { item: saved });
     }
@@ -19,7 +26,8 @@ export default async function handler(req, res) {
       const id = q.get('id');
       if (!COLLECTIONS.includes(collection) || !id) return send(res, 400, { error: 'Bad request' });
       const before = await getItem(collection, id);
-      await deleteItem(collection, id, q.get('who'), before?.title);
+      if (!before) return send(res, 404, { error: 'Already deleted.' });
+      await deleteItem(collection, id, q.get('who'), before.title);
       return send(res, 200, { ok: true });
     }
     return send(res, 405, { error: 'Method not allowed' });

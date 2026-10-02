@@ -89,10 +89,9 @@ export function isLoggedIn(req) {
   if (!m) return false;
   const [payload, sig] = m[1].split('.');
   if (!payload || !sig) return false;
-  const expected = sign(payload);
-  if (sig.length !== expected.length) return false;
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
   try {
+    const a = Buffer.from(sig), b = Buffer.from(sign(payload));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
     return JSON.parse(Buffer.from(payload, 'base64url').toString()).exp > Date.now();
   } catch {
     return false;
@@ -124,6 +123,14 @@ export function checkItem(collection, item) {
   if (typeof item.id !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(item.id)) return 'Bad item id.';
   if (typeof item.title !== 'string' || !item.title.trim()) return 'Every item needs a title.';
   if (JSON.stringify(item).length > MAX_ITEM_BYTES) return 'That item is too long.';
+  for (const k of ['date', 'end', 'due']) {
+    const v = item[k];
+    if (v === undefined || v === null || v === '') continue;
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return `The ${k === 'end' ? 'end date' : 'date'} must look like 2026-10-22.`;
+    const y = Number(v.slice(0, 4));
+    if (y < 2024 || y > 2030) return `The ${k === 'end' ? 'end date' : 'date'} has to be between 2024 and 2030.`;
+  }
+  if (item.date && item.end && item.end < item.date) return 'The end date is before the start date.';
   return null;
 }
 
@@ -218,7 +225,7 @@ function logEntry(who, action, collection, title, id) {
 }
 
 export async function getItem(collection, id) {
-  if (usingFile()) return (fileLoad()[collection] || {})[id] || null;
+  if (usingFile()) { const c = fileLoad()[collection] || {}; return Object.hasOwn(c, id) ? c[id] : null; }
   const [v] = await redis([['HGET', PREFIX + collection, id]]);
   return v ? JSON.parse(v) : null;
 }
@@ -250,6 +257,7 @@ export async function deleteItem(collection, id, who, title) {
     const db = fileLoad();
     if (db[collection]) delete db[collection][id];
     db.log.unshift(entry);
+    db.log = db.log.slice(0, LOG_KEEP);
     fileSave(db);
     return;
   }
@@ -266,7 +274,8 @@ export async function importItems(data, who) {
   const now = new Date().toISOString();
   const rows = [];
   for (const collection of COLLECTIONS) {
-    for (const item of data[collection] || []) {
+    const list = Array.isArray(data[collection]) ? data[collection] : [];
+    for (const item of list) {
       if (checkItem(collection, item)) { counts.skipped++; continue; }
       // importedAt lets the board tell starter data apart from real edits, so an import doesn't light every row as new.
       rows.push([collection, { ...item, updatedAt: now, importedAt: now, updatedBy: cleanWho(who) }]);
@@ -275,7 +284,8 @@ export async function importItems(data, who) {
   if (usingFile()) {
     const db = fileLoad();
     for (const [c, item] of rows) {
-      if (db[c][item.id]) counts.skipped++;
+      db[c] ||= {};
+      if (Object.hasOwn(db[c], item.id)) counts.skipped++;
       else { db[c][item.id] = item; counts.added++; }
     }
     db.log.unshift(logEntry(who, `imported ${counts.added} items into`, 'all', 'the starter data'));
@@ -294,20 +304,29 @@ export async function importItems(data, who) {
   return counts;
 }
 
-// Simple login throttle: after 8 wrong tries from one address in 10 minutes, wait.
+// Login throttle: every attempt counts first (so parallel guesses can't slip through),
+// more than 20 tries from one address in 10 minutes waits, and a correct passcode clears the count.
 const memTries = new Map();
-export async function tooManyTries(req, failed) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
-  const key = PREFIX + 'tries:' + ip;
-  if (usingFile() || !redisConfig()) {
-    const n = (memTries.get(key) || 0) + (failed ? 1 : 0);
-    memTries.set(key, n);
-    return n > 8;
-  }
-  if (failed) {
-    const [n] = await redis([['INCR', key], ['EXPIRE', key, '600']]);
-    return n > 8;
-  }
-  const [n] = await redis([['GET', key]]);
-  return Number(n || 0) > 8;
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
 }
+export async function countTry(req) {
+  const key = PREFIX + 'tries:' + clientIp(req);
+  if (!redisConfig()) {
+    const now = Date.now();
+    const rec = memTries.get(key);
+    const fresh = rec && now - rec.start < 600_000 ? rec : { n: 0, start: now };
+    fresh.n++;
+    memTries.set(key, fresh);
+    return fresh.n;
+  }
+  const [n] = await redis([['INCR', key]]);
+  if (Number(n) === 1) await redis([['EXPIRE', key, '600']]);
+  return Number(n);
+}
+export async function clearTries(req) {
+  const key = PREFIX + 'tries:' + clientIp(req);
+  if (!redisConfig()) { memTries.delete(key); return; }
+  await redis([['DEL', key]]);
+}
+export const MAX_TRIES = 20;

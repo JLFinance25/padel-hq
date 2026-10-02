@@ -61,13 +61,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <label class="field">Your first name <span class="hint">shows next to your changes</span>
         <input id="login-name" type="text" maxlength="40" required autocomplete="given-name">
       </label>
-      <button class="btn btn-primary btn-wide" type="submit">Board</button>
+      <button class="btn btn-primary btn-wide" type="submit">Open the board</button>
       <p id="login-error" class="error" role="alert"></p>
     </form>
   </section>
 
   <!-- App -->
   <div id="app" hidden>
+    <button class="skip" type="button" data-act="skip">Skip to content</button>
     <header class="topbar">
       <a class="brand" href="#board" aria-label="Padel HQ home">
         <span class="ball" aria-hidden="true"></span><span class="wordmark">PADEL&nbsp;HQ</span>
@@ -86,6 +87,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <div id="scrim" class="scrim" hidden></div>
   <aside id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawer-title"></aside>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Your name, shown next to everything you change -->
+  <dialog id="name-dialog" class="name-dialog" aria-labelledby="name-title">
+    <form id="name-form" method="dialog">
+      <h2 id="name-title">Your first name</h2>
+      <p class="hint">Shows next to everything you add or change, and powers the “Mine” filter.</p>
+      <label class="sr" for="name-input">First name</label>
+      <input id="name-input" type="text" maxlength="40" autocomplete="given-name">
+      <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn btn-primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="js/core.js"></script>
   <script src="js/board.js"></script>
