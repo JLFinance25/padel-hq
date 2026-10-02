@@ -662,3 +662,23 @@ details.panel[open] summary { margin-bottom: 8px; }
 .name-dialog h2 { margin: 0 0 4px; font: 700 24px/1 var(--display); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); }
 .name-dialog .hint { display: block; margin-bottom: 12px; font-size: 13px; }
 .cell-status .fc.sp { min-width: .32em; }
+
+/* Round 2 design fixes */
+/* Lit rows: the yellow letters and tag carry the change; no muddy wash on navy */
+.dep.lit { background: none; }
+.dep.lit:nth-child(even) { background: var(--board-2); }
+.dep.lit:hover { background: #1F3052; }
+/* Strip actions: All updates + remove the newest post */
+.alert { grid-template-columns: 52px 1fr auto; }
+.alert-actions { display: flex; align-items: center; gap: 2px; margin-right: 8px; }
+.alert-actions .icon-btn { width: 40px; height: 40px; color: var(--muted); }
+@media (max-width: 680px) { .alert-actions { grid-column: 2; margin: 0 0 8px 6px; } }
+/* Band titles run across the band's days in that week */
+.chip-ev.band[style*="--span"] { overflow: visible; }
+.chip-ev.band[style*="--span"] .chip-text { position: relative; z-index: 2; overflow: hidden; text-overflow: ellipsis; max-width: calc(var(--span) * 100% + (var(--span) - 1) * 13px - 14px); }
+.chip-ev.band[style*="--span"] .chip-text { flex: none; }
+@media (max-width: 680px) {
+  .legend-light .key-hint { display: none; }
+  .addbar input[type=date] { width: auto; flex: 1 1 0; min-width: 0; }
+  .addbar .btn { flex: none; }
+}

@@ -103,7 +103,8 @@ function viewBoard() {
       <span class="alert-icon">${icon('alert')}</span>
       <div class="alert-body"><div class="alert-text">${esc(latest.title)}</div>
         <div class="alert-meta">Latest update · ${esc(latest.by || latest.updatedBy || 'Someone')} · ${esc(ago(latest.createdAt || latest.updatedAt))}</div></div>
-      <a class="btn btn-ghost btn-sm alert-more" href="#updates" data-act="to-updates">All updates</a>
+      <span class="alert-actions"><a class="btn btn-ghost btn-sm" href="#updates" data-act="to-updates">All updates</a>
+      <button class="icon-btn" data-act="post-del" data-id="${esc(latest.id)}" aria-label="Remove this update" title="Remove">${icon('trash')}</button></span>
     </div>` : '';
 
   const rows = [
@@ -142,7 +143,7 @@ function viewBoard() {
     </section>`;
 
   setTimeout(() => { flapArmed = true; }, 0);
-  return `${strip}<div class="home">${board}${updatesRail(posts)}</div>${lineMap()}`;
+  return `${strip}<div class="home">${board}${updatesRail(posts.slice(1))}</div>${lineMap()}`;
 }
 
 // ---------- Updates rail ----------

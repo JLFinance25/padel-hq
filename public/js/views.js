@@ -49,8 +49,11 @@ function monthChip(r, k, dow) {
   const ends = k === r.end;
   // A multi-day event is one band: the title shows where it starts and at the start of each week; other days continue the band.
   const showText = !multi || starts || dow === 0;
+  // How many days the band runs from here to the end of this week, so its title can use that whole width.
+  let span = 1;
+  if (multi && showText) { const left = Math.round((parseDay(r.end) - parseDay(k)) / 86400000); span = Math.min(left, 6 - dow) + 1; }
   const cls = `chip-ev${r.c === 'tasks' ? ' task' : ''}${r.it.done ? ' done' : ''}${isLit(r.c, r.it) ? ' lit' : ''}${multi ? ' band' : ''}${multi && !starts && dow !== 0 ? ' cont-l' : ''}${multi && !ends && dow !== 6 ? ' cont-r' : ''}`;
-  return `<button class="${cls}" data-open="${r.c}:${esc(r.it.id)}" title="${esc(r.it.title)}" ${showText ? '' : 'aria-hidden="true" tabindex="-1"'}>${showText ? `<span class="kdot kd-${esc(r.kind)}"></span><span>${esc(r.it.title)}</span>` : '&nbsp;'}</button>`;
+  return `<button class="${cls}" data-open="${r.c}:${esc(r.it.id)}" title="${esc(r.it.title)}" ${showText ? '' : 'aria-hidden="true" tabindex="-1"'} ${span > 1 ? `style="--span:${span}"` : ''}>${showText ? `<span class="kdot kd-${esc(r.kind)}"></span><span class="chip-text">${esc(r.it.title)}</span>` : '&nbsp;'}</button>`;
 }
 
 function viewMonth() {
