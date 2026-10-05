@@ -10,7 +10,7 @@ export const COLLECTIONS = ['events', 'tasks', 'coe', 'posts'];
 const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
-const SESSION_DAYS = 30;
+const SESSION_DAYS = 40;
 const MAX_ITEM_BYTES = 8000;
 
 // ---------- HTTP ----------
