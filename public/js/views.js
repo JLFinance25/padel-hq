@@ -204,7 +204,9 @@ function viewTeam(id) {
   return `
     <div class="page-head">
       <div><h1>${esc(d.name)}</h1><p>${esc(d.blurb)}</p></div>
-      <div><span class="stat-text">${done.length} of ${all.length} done</span>
+      <div class="team-stat">
+        <span class="stat-label">Done</span>
+        <span class="stat-num">${flap('team-' + id, `${done.length}/${all.length}`)}</span>
         <div class="cells" role="img" aria-label="${done.length} of ${all.length} done">${all.map((t) => `<i class="${t.done ? 'on' : ''}"></i>`).join('')}</div></div>
     </div>
     <form class="addbar" data-form="quick-task">
@@ -256,7 +258,8 @@ function viewCoe() {
         <div class="coe-track"><div class="coe-fill" style="transform:scaleX(${Math.min(100, pct) / 100})"></div>${tiers}</div>
         <p class="tier-key">Bronze 36 · Silver 48 · Gold 54</p>
         <p class="coe-msg">${esc(msg)}</p>
-        <p class="coe-note">Bonus points: ${bonus} of 4. Check an item off when it is submitted or finished, not when it is started. The bar uses the 60 regular points, because whether VE counts bonus points toward the percentage is unverified. Heads up: VE's page says the year totals 60, but its listed items add up to 61 (Period 5 is labeled 16 and its items add to 17). Our teacher should confirm which is right.</p>
+        <p class="coe-note">Bonus points: ${bonus} of 4. Check an item off when it is submitted or finished, not when it is started.</p>
+        <details class="coe-more" ${S.coeMore ? 'open' : ''}><summary>How the score is counted</summary><p>The bar uses the 60 regular points, because whether VE counts bonus points toward the percentage is unverified. Heads up: VE's page says the year totals 60, but its listed items add up to 61 (Period 5 is labeled 16 and its items add to 17). Our teacher should confirm which is right.</p></details>
       </div>
     </section>
     ${S.coe.length === 0 ? '<p class="empty"><b>The checklist is empty.</b>Load the starter data from the Log tab.</p>' : ''}

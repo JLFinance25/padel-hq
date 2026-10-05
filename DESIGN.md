@@ -470,14 +470,15 @@ A 22px square with 6px corners. Empty is white with a Hairline Dark border (fain
 
 ### Navigation
 - **Top bar:** white, hairline underneath, sticky. Ball mark and wordmark on the left (with a dashed "working name" badge that hides on phones); your name in a Paper Shade chip and a log-out icon on the right.
-- **Tabs:** Big Shoulders capitals, muted. Hover turns Navy Ink. The current tab is Navy Ink with a 2px Court Green underline. A small round counter can sit after a label; on the Board tab it turns Ball Yellow when things changed since you looked. Tabs scroll sideways on phones.
+- **Tabs:** Big Shoulders capitals, muted, never underlined like links. Hover turns Navy Ink and previews a Hairline Dark rule that draws in from the left. The current tab is Navy Ink with a 2px Court Green rule. A small round counter can sit after a label; on the Board tab it turns Ball Yellow when things changed since you looked. Tabs scroll sideways on phones.
 
 ### Departures board (signature)
 The heart of the site.
 - A navy slab with 14px corners and the board-slab shadow. The header has "DEPARTURES" in Display with the ball mark, and a yellow flip-tile clock on the right with the weekday and date in Dim Letters.
 - Controls under the title: a segmented filter (Dates, To-dos, Mine, Everything) and a team picker.
 - Column headings in Dim Letters label, between two hairlines.
-- **Rows:** at least 54px tall, hairline between rows, every other row in Board Stripe. The whole row is one big button that opens the detail panel; a yellow inset outline shows keyboard focus.
+- **Rows:** at least 54px tall, hairline between rows, every other row in Board Stripe. The whole row is one big button that opens the detail panel; a yellow inset outline shows keyboard focus. Under the pointer or keyboard focus the row's lamp warms to a faint warm white bar (Lamp Red on the late row), like a selected line on a station board.
+- **Loading:** before the data arrives the board shows six placeholder rows of Tile Black bars that pulse in a slow wave. **Failure:** if the data can't load, the board says "THE BOARD DIDN'T LOAD" in Title type, the reason in Lamp Red, and a Try again button. It never sits on a loading message forever.
 - **Days column** is Ball Yellow when 14 days or less away and Dim when further.
 - **Changed rows** (new or edited by someone else since you looked): the When and Days letters turn Ball Yellow and a small yellow NEW or UPDATED tag sits under the title. No background tint, no side bar.
 - **Late to-dos** fold into one row at the top with a red count, so they do not push real deadlines off the board. Tapping it shows or hides them.
@@ -509,7 +510,7 @@ Slides in from the right (500px wide, full width on phones) over a navy scrim.
 - **Editing mode:** the header turns Paper Shade with Navy Ink text, so you can always tell reading (navy) from editing (paper). Form fields stack in one column, with short pairs side by side on wider screens.
 
 ### Lock screen: the boarding pass
-A centered 380px white card with 16px corners and the floating-card shadow. A full-width navy header holds the ball, the wordmark in warm white and a yellow "CLASS PASS" tag. Under it, the season's first and last month in big Display capitals joined by a dashed route line, one sentence about the site, the perforation, then the passcode and name fields and a green "Open the board" button.
+A centered 380px white card with 16px corners and the floating-card shadow. A full-width navy header holds the ball, the wordmark in warm white and a yellow "CLASS PASS" tag. Under it, the season's first and last month in big Display capitals joined by a dashed route line; the ball rolls along it to where today falls in the season and the travelled part turns Ball Yellow, one sentence about the site, the perforation, then the passcode and name fields and a green "Open the board" button.
 
 ### Month calendar
 A white panel with weekday headings in Big Shoulders labels. Day numbers are Big Shoulders in a 28px circle; today is a filled Navy Ink circle; the selected day is Pale Court; days outside the month are Warm Paper. Events are small Paper Shade chips with a kind dot; to-dos are dashed chips; changed items are Pale Ball; done items fade and strike through; a multi-day event is one continuous Navy Mist band across its days. The day sheet beside it has a navy header with the big date number.
@@ -518,7 +519,10 @@ A white panel with weekday headings in Big Shoulders labels. Day numbers are Big
 A white panel with a horizontal Court Green track (the past part turns Hairline Dark), white station circles with green rings (big stops ringed in Navy Ink, past stops grey), stop names in Big Shoulders capitals above, the Circles periods as bands below (the current one in Pale Court), month ticks, and the yellow TODAY ball. It scrolls sideways on narrow screens.
 
 ### Circles of Excellence score
-A navy panel with the score in 64px flip tiles, "of N" in Dim Letters, a 12px round progress track filled in Lamp Green, and tier marks for Bronze, Silver and Gold (Gold's label in Ball Yellow). Each period below is a navy header strip sitting on a ruled list; a missed period's header turns Clay Red.
+A navy panel with the score in 64px flip tiles, "of N" in Dim Letters, a 12px round progress track filled in Lamp Green, and tier marks for Bronze, Silver and Gold (Gold's label in Ball Yellow). One plain line under the message (bonus points, when to check an item off); the longer caveat about how the score is counted folds into a "+ How the score is counted" toggle. Each period below is a navy header strip sitting on a ruled list; a missed period's header turns Clay Red.
+
+### Team progress
+At the top right of each team page: a tiny "DONE" label over the done count in 30px flip tiles ("3/5"), with one small cell per item underneath, filled Court Green when done. On phones it sits under the heading, left-aligned.
 
 ### Toast
 A small navy bar at the bottom center with a check icon and a short message, sliding up into place. An "Undo" action shows in Ball Yellow, underlined. Errors use Clay Red.
@@ -527,7 +531,9 @@ A small navy bar at the bottom center with a check icon and a short message, sli
 - **One easing curve** for everything that moves: `--ease`, a fast start with a soft landing (`cubic-bezier(.16, 1, .3, 1)`).
 - **Hover and state changes:** 0.15s.
 - **Flip tiles:** each tile flips down into place in 0.42s. Letters start 32ms apart (capped at 0.9s), and each board row starts 28ms after the one above. The whole board cascades once when the page first loads. After that a tile flips only when its own text changes, never just because you changed a filter.
-- **Blink:** the dot for Due soon and Overdue blinks on a 1.6s on/off step. Nothing else blinks, and the dots in the color key stay still.
+- **Blink:** the dot for Due soon and Overdue blinks on a 1.6s on/off step, and the clock's colon ticks on a 2s step. Nothing else blinks, and the dots in the color key stay still.
+- **Page change:** a new page rises 8px into place in 0.42s, its parts 50ms apart. It plays once per tab change, never on background refreshes.
+- **Lock screen:** the route fills and the ball rolls to today in 1.1s.
 - **Panels:** the detail panel slides in 40px from the right in 0.26s while the scrim fades in 0.2s. Month slides 18px sideways in 0.28s when you change months. The toast rises in 0.25s. The Circles bar fills in 0.5s. Season stops grow to 125% on hover.
 - **Reduced motion:** if the device asks for less motion, every animation and transition is switched off, and the flip tiles do not flip at all.
 

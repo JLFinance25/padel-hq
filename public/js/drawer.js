@@ -170,6 +170,12 @@ async function saveDrawer() {
   const title = form.elements.title;
   if (!title.value.trim()) { title.setCustomValidity('Give it a title.'); title.reportValidity(); title.setCustomValidity(''); return; }
   for (const el of form.querySelectorAll('input[type=date]')) if (!el.checkValidity()) { el.reportValidity(); return; }
+  const end = form.elements.end;
+  if (end && end.value) {
+    const start = form.elements.date.value;
+    const problem = !start ? 'Add a start date first, or clear the end date.' : end.value < start ? 'The end date is before the start date.' : '';
+    if (problem) { end.setCustomValidity(problem); end.reportValidity(); end.setCustomValidity(''); return; }
+  }
   const data = Object.fromEntries(new FormData(form).entries());
   for (const k of Object.keys(data)) data[k] = String(data[k]).trim();
   if (collection === 'events') {

@@ -86,7 +86,9 @@ function clockHtml() {
   const now = new Date();
   const day = now.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short' }).replace(',', '');
   const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/, '');
-  return `<small>${esc(day.toUpperCase())}</small>${flap('clock', time)}`;
+  const [h, m] = time.split(':');
+  // Hours and minutes flip on their own; the colon between them ticks like a station clock.
+  return `<small>${esc(day.toUpperCase())}</small><span class="clock-time">${flap('clock-h', h)}<span class="colon" aria-hidden="true">:</span>${flap('clock-m', m)}</span>`;
 }
 
 function boardEmpty() {

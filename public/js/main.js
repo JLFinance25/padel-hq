@@ -7,6 +7,7 @@ function showLogin() {
   if (drawerState) { drawerState = null; $('#drawer').hidden = true; $('#scrim').hidden = true; $('#app').inert = false; document.body.style.overflow = ''; }
   $('#app').hidden = true;
   $('#login').hidden = false;
+  $('.route-line').style.setProperty('--at', pos(todayKey()).toFixed(1) + '%'); // the ball sits where today falls in the season
   $('#login-name').value = S.me;
   setTimeout(() => $('#login-pass').focus(), 30);
 }
@@ -35,6 +36,7 @@ function startApp() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   paintMe();
+  S.loadError = null;
   store('phq_lastvisit', new Date().toISOString()); // next visit compares against now; this visit still uses PREV_VISIT
   render();
   refresh();
@@ -109,14 +111,25 @@ function route() {
   renderTabs(); render();
   if (v === 'updates') setTimeout(() => $('#updates')?.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' }), 30);
   else if (changed) { window.scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); }
+  if (changed) enterMain();
   $('#tabs [aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+// A new page rises in once. The class comes off right after, so background repaints never replay it.
+function enterMain() {
+  const m = $('#main');
+  m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter');
+  clearTimeout(enterMain.t); enterMain.t = setTimeout(() => m.classList.remove('enter'), 600);
 }
 window.addEventListener('hashchange', route);
 
 function render() {
   const main = $('#main');
   if (!S.loaded) {
-    main.innerHTML = `<div class="board" aria-busy="true"><div class="board-head"><h1 class="board-title"><span class="ball"></span>Departures</h1></div><p class="board-empty">Loading the board…</p></div>`;
+    const head = `<div class="board-head"><h1 class="board-title"><span class="ball" aria-hidden="true"></span>Departures</h1></div>`;
+    main.innerHTML = S.loadError
+      ? `<div class="board board-error" role="alert">${head}<div class="board-empty"><p class="err-title">The board didn't load</p><p class="err-msg">${esc(S.loadError)}</p><button class="btn btn-sm" data-act="retry">Try again</button></div></div>`
+      : `<div class="board" aria-busy="true">${head}<p class="sr">Loading the board…</p><ol class="rows skeleton" aria-hidden="true">${'<li class="dep"><span></span><span class="sk sk-when"></span><span class="sk sk-in"></span><span class="sk sk-title"></span></li>'.repeat(6)}</ol></div>`;
     return;
   }
   // Remember focus, scroll spots and anything half-typed, then repaint, then put them back.
@@ -215,6 +228,7 @@ document.addEventListener('click', async (e) => {
     case 'edit': if (!drawerState) break; drawerState.editing = true; drawerState.snap = null; paintDrawer(); setTimeout(() => $('#drawer [name=title]')?.focus(), 30); break;
     case 'cancel-edit': if (!drawerState) break; if (drawerIsDirty() && !confirm('Discard your unsaved changes?')) break; drawerState.editing = false; drawerState.snap = null; paintDrawer(); $('#drawer [data-act=edit]')?.focus(); break;
     case 'skip': $('#main').focus(); $('#main').scrollIntoView(); break;
+    case 'retry': S.loadError = null; render(); refresh(); break;
     case 'save': break; // the Save button submits the form; see the submit handler
     case 'delete': { const it = currentItem(); if (it && await removeItem(drawerState.collection, it)) closeDrawer(); break; }
     case 'drawer-tick': {
@@ -233,6 +247,9 @@ document.addEventListener('change', (e) => {
   if (act === 'month-tasks') { S.monthTasks = e.target.checked; render(); }
   if (act === 'import' && e.target.files[0]) importFile(e.target.files[0]);
 });
+
+// Repaints rebuild the page, so remember whether the Circles score note was left open.
+document.addEventListener('toggle', (e) => { if (e.target.classList?.contains('coe-more')) S.coeMore = e.target.open; }, true);
 
 // The post box grows when you start typing and counts characters.
 document.addEventListener('focusin', (e) => { if (e.target.id === 'post-text') e.target.closest('form').classList.add('open'); });

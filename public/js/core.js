@@ -203,10 +203,14 @@ async function refresh(quiet) {
     const raw = JSON.stringify(data) + todayKey(); // a new day repaints even if nothing else changed
     if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
+    const first = !S.loaded;
     S.events = data.events || []; S.tasks = data.tasks || []; S.coe = data.coe || []; S.posts = data.posts || []; S.log = data.log || [];
-    S.loaded = true;
+    S.loaded = true; S.loadError = null;
     if (!drawerIsEditing()) { renderTabs(); render(); if (drawerState) syncDrawer(); }
+    if (first) enterMain();
   } catch (e) {
+    // Nothing on screen yet: say what went wrong where the board would be, with a way to try again.
+    if (!S.loaded) { S.loadError = e.message; render(); return; }
     if (!quiet) toast(e.message, true);
   }
 }
@@ -255,14 +259,32 @@ async function updateItem(collection, id, fields) {
   }
 }
 
+// A to-do linked to a Circles item moves with it: the Circles item is done when every to-do linked to it is,
+// and checking the Circles item itself checks its linked to-dos.
+async function setDone(collection, id, done) {
+  const saved = await updateItem(collection, id, { done });
+  const sync = [];
+  if (collection === 'tasks' && saved.coe) {
+    const c = findItem('coe', saved.coe);
+    const all = S.tasks.filter((t) => t.coe === saved.coe).every((t) => t.done);
+    if (c && !!c.done !== all) sync.push(['coe', c.id, all]);
+  } else if (collection === 'coe') {
+    for (const t of S.tasks) if (t.coe === id && !!t.done !== done) sync.push(['tasks', t.id, done]);
+  }
+  for (const [c, i, d] of sync) await updateItem(c, i, { done: d }).catch(() => {}); // a failure already showed its own message
+  return saved;
+}
+
 // Check off or un-check, with an Undo button in the message.
 async function toggleDone(collection, id) {
   const item = findItem(collection, id);
   if (!item) return null;
-  const saved = await updateItem(collection, id, { done: !item.done });
-  toast(saved.done ? 'Checked off' : 'Marked not done', false, {
+  const saved = await setDone(collection, id, !item.done);
+  const coe = collection === 'tasks' && saved.coe && findItem('coe', saved.coe);
+  const msg = saved.done ? (coe && coe.done ? `Checked off. Circles +${coe.points} counted.` : 'Checked off') : 'Marked not done';
+  toast(msg, false, {
     label: 'Undo',
-    run: () => updateItem(collection, id, { done: !saved.done }).then(() => toast('Undone')).catch(() => {}),
+    run: () => setDone(collection, id, !saved.done).then(() => toast('Undone')).catch(() => {}),
   });
   return saved;
 }
