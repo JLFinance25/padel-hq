@@ -799,3 +799,6 @@ main.enter > :nth-child(n+4) { animation-delay: .15s; }
 
 /* The page area takes focus after a tab change so screen readers land on it; it never needs a visible ring */
 main:focus-visible { outline: none; }
+
+/* Season line: same geometry on every screen as on a wide desktop, so stop labels and their pointer lines never collide; narrower screens scroll it sideways */
+.track { min-width: 1150px; }
