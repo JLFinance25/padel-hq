@@ -120,7 +120,7 @@ export function cleanWho(who) {
 const set = (...xs) => Object.fromEntries(xs.map((x) => [x, true]));
 const ALLOWED = {
   dept: set('racquets', 'apparel', 'tech', 'finance', 'sales', 'firm'),
-  kind: set('deadline', 'competition', 'tradeshow', 'trip', 'event', 'internal'),
+  kind: set('deadline', 'competition', 'tradeshow', 'trip', 'event', 'internal', 'dayoff'),
   status: set('confirmed', 'projected', 'teacher', 'internal', 'nodate'),
 };
 

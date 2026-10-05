@@ -91,7 +91,7 @@ function renderTabs() {
     tab('coe', 'Circles', '', 0, false, 'Circles of Excellence') +
     '<span class="tab-sep" aria-hidden="true"></span>' +
     DEPTS.map((d) => {
-      const open = S.tasks.filter((t) => t.dept === d.id && !t.done).length;
+      const open = S.tasks.filter((t) => t.dept === d.id && !t.done).length + looseCoe(d.id).filter((c) => !c.done).length;
       const hot = lit.some(([c, it]) => c === 'tasks' && it.dept === d.id);
       return tab(d.id, d.name, '', open, hot, `${open} open to-dos${hot ? ', some changed since you last looked' : ''}`);
     }).join('') +

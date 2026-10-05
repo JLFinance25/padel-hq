@@ -10,7 +10,7 @@ function boardItems() {
   const teamOk = (d) => S.boardTeam === 'all' || d === S.boardTeam;
   if (S.boardFilter === 'dates' || S.boardFilter === 'all') {
     for (const e of S.events) {
-      if (!e.date || (e.end || e.date) < t || !teamOk(e.dept)) continue;
+      if (!e.date || (e.end || e.date) < t || !teamOk(e.dept) || e.kind === 'dayoff') continue;
       out.push({ c: 'events', it: e, date: e.date < t && e.end ? t : e.date });
     }
   }
@@ -20,6 +20,12 @@ function boardItems() {
       if (S.boardFilter === 'mine' && !ownerMatches(k.owner, S.me)) continue;
       out.push({ c: 'tasks', it: k, date: k.due });
     }
+    if (S.boardFilter !== 'mine') {
+      for (const k of looseCoe()) {
+        if (k.done || !k.due || !teamOk(k.dept)) continue;
+        out.push({ c: 'coe', it: k, date: k.due });
+      }
+    }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.c === b.c ? 0 : a.c === 'events' ? -1 : 1));
 }
@@ -27,11 +33,12 @@ function boardItems() {
 function rowStatus(c, it, date) {
   const n = daysUntil(date);
   const ongoing = c === 'events' && it.end && it.date < todayKey() && it.end >= todayKey();
-  if (c === 'tasks' && n < 0) return ['overdue', 'Overdue'];
+  if (c !== 'events' && n < 0) return ['overdue', 'Overdue'];
   if (ongoing) return ['today', 'On now'];
   if (n === 0) return ['today', 'Today'];
   if (n <= 3) return ['soon', 'Due soon'];
   if (c === 'tasks') return ['todo', 'To-do'];
+  if (c === 'coe') return ['todo', 'Circles'];
   return [it.status || 'internal', BOARD_STATUS[it.status] || 'Our target'];
 }
 
@@ -42,8 +49,8 @@ function depRow(r, i) {
   const [st, label] = rowStatus(c, it, date);
   const inText = n < 0 ? 'Late' : n === 0 ? 'Now' : String(n);
   const d = dept(it.dept);
-  const sub = c === 'tasks'
-    ? [it.owner ? esc(it.owner) : 'Unassigned', esc(d.name)]
+  const sub = c === 'tasks' ? [it.owner ? esc(it.owner) : 'Unassigned', esc(d.name)]
+    : c === 'coe' ? [`Circles +${esc(it.points)}`, esc(d.name)]
     : [esc(KINDS[it.kind] || it.kind || 'Event'), it.end && it.end !== it.date ? 'to ' + fmt(it.end, { month: 'short', day: 'numeric' }) : '',
       (st === 'soon' || st === 'today') ? esc(STATUSES[it.status] || '') + ' date' : ''];
   const aria = `${fmt(date)}, ${relDays(n)}: ${it.title}. ${d.name}. ${label}.${lit ? ' ' + litWord(c, it) + ' since you last looked.' : ''}`;
@@ -53,7 +60,7 @@ function depRow(r, i) {
     <span class="cell-when">${flap('w' + it.id, boardDate(date), i * 28)}<span class="in-m" aria-hidden="true">${esc(n > 0 ? n + (n === 1 ? ' day' : ' days') : inText)}</span></span>
     <span class="cell-in ${n > 14 ? 'far' : ''}">${flap('i' + it.id, inText, i * 28 + 120)}</span>
     <span class="cell-title">
-      ${c === 'tasks' ? `<button class="tick" role="checkbox" aria-checked="false" aria-label="Mark done: ${esc(it.title)}" data-tick="tasks:${esc(it.id)}">${icon('check')}</button>` : ''}
+      ${c !== 'events' ? `<button class="tick" role="checkbox" aria-checked="false" aria-label="Mark done: ${esc(it.title)}" data-tick="${c}:${esc(it.id)}">${icon('check')}</button>` : ''}
       <span class="title-text"><span class="title-main">${esc(it.title)}</span>
         <span class="title-sub">${lit ? `<span class="tagflap">${litWord(c, it)}</span>` : ''}${sub.filter(Boolean).join(' · ')}</span></span>
     </span>
@@ -90,8 +97,8 @@ function boardEmpty() {
 
 function viewBoard() {
   const all = boardItems();
-  const late = all.filter((r) => r.c === 'tasks' && r.date < todayKey());
-  const rest = all.filter((r) => !(r.c === 'tasks' && r.date < todayKey()));
+  const late = all.filter((r) => r.c !== 'events' && r.date < todayKey());
+  const rest = all.filter((r) => !(r.c !== 'events' && r.date < todayKey()));
   const limit = boardRows();
   const shown = S.boardFull ? rest : rest.slice(0, limit);
   const teamOk = (x) => S.boardTeam === 'all' || x.dept === S.boardTeam;

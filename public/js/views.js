@@ -22,6 +22,26 @@ function taskRowHtml(t) {
   </li>`;
 }
 
+// A Circles of Excellence item shown in a team list: same row as a to-do, tagged with its points.
+function coeRowHtml(c) {
+  const n = daysUntil(c.due);
+  const cls = c.done ? '' : n !== null && n < 0 ? 'overdue' : n !== null && n <= 3 ? 'soon' : '';
+  const lit = isLit('coe', c);
+  return `<li class="rrow${c.done ? ' is-done' : ''}${lit ? ' lit' : ''}">
+    <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
+    <button class="rrow-open" data-open="coe:${esc(c.id)}">
+      <span class="r-title">${esc(c.title)}${lit ? `<span class="pill new">${litWord('coe', c)}</span>` : ''}</span>
+      ${c.desc ? `<span class="r-desc">${esc(c.desc)}</span>` : ''}
+    </button>
+    <span class="r-side">
+      ${c.due ? `<span class="due ${cls}">${boardDate(c.due)} · ${esc(relDays(n))}</span>` : ''}
+      <span class="pill coe" title="A Circles of Excellence item. Checking it here checks it on the Circles tab too.">Circles +${esc(c.points)}</span>
+    </span>
+  </li>`;
+}
+const isCoe = (x) => x.period !== undefined;
+const teamRowHtml = (x) => (isCoe(x) ? coeRowHtml(x) : taskRowHtml(x));
+
 function eventRowHtml(e) {
   const lit = isLit('events', e);
   const st = e.status || (e.date ? 'internal' : 'nodate');
@@ -85,8 +105,9 @@ function viewMonth() {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = dayKey(d);
     const list = (byDay[k] || []).sort((a, b) => rank(a) - rank(b) || a.date.localeCompare(b.date));
-    const label = `${fmt(k, { weekday: 'long', month: 'long', day: 'numeric' })}, ${list.length ? list.length + ' item' + (list.length > 1 ? 's' : '') : 'nothing scheduled'}`;
-    grid += `<div class="day${d.getMonth() !== first.getMonth() ? ' out' : ''}${k === t ? ' today' : ''}${k === S.sel ? ' sel' : ''}" data-day="${k}">
+    const off = list.some((r) => r.kind === 'dayoff');
+    const label = `${fmt(k, { weekday: 'long', month: 'long', day: 'numeric' })}${off ? ', no school' : ''}, ${list.length ? list.length + ' item' + (list.length > 1 ? 's' : '') : 'nothing scheduled'}`;
+    grid += `<div class="day${d.getMonth() !== first.getMonth() ? ' out' : ''}${k === t ? ' today' : ''}${k === S.sel ? ' sel' : ''}${off ? ' off' : ''}" data-day="${k}">
       <button class="dnum" data-act="pick-day" data-day="${k}" aria-label="${esc(label)}" aria-pressed="${k === S.sel}" tabindex="${k === S.sel ? 0 : -1}">${d.getDate()}</button>
       ${list.slice(0, 3).map((r) => monthChip(r, k, d.getDay())).join('')}
       ${list.length > 3 ? `<span class="more">+${list.length - 3} more</span>` : ''}
@@ -161,11 +182,12 @@ function byDue(a, b) { return (a.due || '9999').localeCompare(b.due || '9999') |
 
 function viewTeam(id) {
   const d = dept(id);
-  const all = S.tasks.filter((t) => t.dept === id);
+  const circles = looseCoe(id);
+  const all = [...S.tasks.filter((t) => t.dept === id), ...circles];
   const done = all.filter((t) => t.done);
   let list = all;
-  if (S.taskFilter === 'mine') list = list.filter((t) => ownerMatches(t.owner, S.me));
-  if (S.taskFilter === 'unassigned') list = list.filter((t) => !t.owner);
+  if (S.taskFilter === 'mine') list = list.filter((t) => !isCoe(t) && ownerMatches(t.owner, S.me));
+  if (S.taskFilter === 'unassigned') list = list.filter((t) => !isCoe(t) && !t.owner);
   const open = list.filter((t) => !t.done).sort(byDue);
   const groups = [
     { title: 'Overdue', cls: 'red', items: open.filter((t) => t.due && daysUntil(t.due) < 0) },
@@ -193,13 +215,14 @@ function viewTeam(id) {
       <button class="btn btn-primary" type="submit">${icon('plus')}Add</button>
     </form>
     <div class="seg" role="group" aria-label="Filter">${seg('all', 'Everything')}${seg('mine', 'Mine')}${seg('unassigned', 'Unassigned')}</div>
+    ${circles.length && S.taskFilter === 'all' ? `<p class="hint" style="font-size:13px;margin:10px 0 0">Includes ${circles.length} Circles of Excellence item${circles.length === 1 ? '' : 's'} for this team, tagged “Circles”. Checking one here checks it on the Circles tab too.</p>` : ''}
     ${open.length === 0 ? `<p class="empty" style="margin-top:16px">${emptyMsg}</p>` : ''}
     ${groups.filter((g) => g.items.length).map((g) => `
       <h2 class="group-title ${g.cls || ''}">${g.title} · ${g.items.length}</h2>
-      <ul class="ruled">${g.items.map(taskRowHtml).join('')}</ul>`).join('')}
+      <ul class="ruled">${g.items.map(teamRowHtml).join('')}</ul>`).join('')}
     ${doneList.length ? `
       <h2 class="group-title">Done · ${doneList.length} <button class="btn btn-ghost btn-sm" data-act="toggle-done" aria-expanded="${S.showDone}">${S.showDone ? 'Hide' : 'Show'}</button></h2>
-      ${S.showDone ? `<ul class="ruled">${doneList.map(taskRowHtml).join('')}</ul>` : ''}` : ''}`;
+      ${S.showDone ? `<ul class="ruled">${doneList.map(teamRowHtml).join('')}</ul>` : ''}` : ''}`;
 }
 
 // ---------- Circles of Excellence ----------

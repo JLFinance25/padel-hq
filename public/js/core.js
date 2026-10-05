@@ -12,11 +12,11 @@ const DEPTS = [
 ];
 const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '' };
 
-const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone' };
+const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone', dayoff: 'No school' };
 const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From our teacher', internal: 'Our target', nodate: 'No date yet' };
 const BOARD_STATUS = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From teacher', internal: 'Our target', nodate: 'No date' };
 const STATUS_HELP = {
-  confirmed: "VE's own site lists this date for 2026–27.",
+  confirmed: 'An official 2026–27 calendar lists this date (VE or the school district; see Source).',
   projected: "Guessed from last season's date. Confirm with our teacher before relying on it.",
   teacher: 'Our teacher gave us this in class.',
   internal: 'A target our firm set for itself. It can move.',
@@ -283,5 +283,12 @@ async function removeItem(collection, item, word = 'Delete') {
 
 // The log updates on the server; pull it shortly after a change so the Updates feed shows it.
 function refreshLogSoon() { clearTimeout(refreshLogSoon.t); refreshLogSoon.t = setTimeout(() => refresh(true), 700); }
+
+// Circles of Excellence items no to-do already covers. They show in their team's list and on the board's To-dos view,
+// so money jobs like payroll and taxes are visible where teams look, as one item with one checkbox.
+function looseCoe(dept) {
+  const covered = new Set(S.tasks.map((t) => t.coe).filter(Boolean));
+  return S.coe.filter((c) => !covered.has(c.id) && (!dept || c.dept === dept));
+}
 
 function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }
