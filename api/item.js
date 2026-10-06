@@ -1,4 +1,8 @@
-import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, deleteItem, COLLECTIONS } from './_lib.js';
+import { send, readJson, query, requireLogin, isOfficer, checkItem, getItem, saveItem, deleteItem, clearCollection, COLLECTIONS } from './_lib.js';
+
+// To-dos are run by the officers: only they add, edit or delete them.
+// Everyone else can still check one off or put their name on it.
+const MEMBER_TASK_FIELDS = new Set(['id', 'done', 'owner']);
 
 export default async function handler(req, res) {
   try {
@@ -12,6 +16,10 @@ export default async function handler(req, res) {
       // patch = only the fields someone changed, merged onto the latest saved copy,
       // so an old open panel can't wipe out a classmate's newer edit.
       if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
+      if (collection === 'tasks' && !isOfficer(req)) {
+        if (!before) return send(res, 403, { error: 'Only officers can add to-dos.' });
+        if (!body.patch || Object.keys(body.item).some((k) => !MEMBER_TASK_FIELDS.has(k))) return send(res, 403, { error: 'Only officers can edit to-dos. You can check one off or assign it to yourself.' });
+      }
       const item = body.patch ? { ...before, ...body.item } : body.item;
       const problem = checkItem(collection, item);
       if (problem) return send(res, 400, { error: problem });
@@ -24,6 +32,8 @@ export default async function handler(req, res) {
       const q = query(req);
       const collection = q.get('collection');
       const id = q.get('id');
+      if (collection === 'tasks' && !isOfficer(req)) return send(res, 403, { error: 'Only officers can delete to-dos.' });
+      if (collection === 'tasks' && q.get('all') === '1') return send(res, 200, { cleared: await clearCollection('tasks', q.get('who'), 'to-dos') });
       if (!COLLECTIONS.includes(collection) || !id) return send(res, 400, { error: 'Bad request' });
       const before = await getItem(collection, id);
       if (!before) return send(res, 404, { error: 'Already deleted.' });

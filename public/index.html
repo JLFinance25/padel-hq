@@ -55,7 +55,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <p class="pass-sub">The firm's departures board, calendar and team to-do lists. Everyone in class sees the same thing.</p>
       <div class="perf" aria-hidden="true"></div>
-      <label class="field">Class passcode
+      <label class="field">Class passcode <span class="hint">officers can use theirs</span>
         <input id="login-pass" type="password" required autocomplete="current-password">
       </label>
       <label class="field">Your first name <span class="hint">shows next to your changes</span>
@@ -75,7 +75,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <span class="working" title="The firm name is not picked yet">working name</span>
       </a>
       <div class="topbar-right">
-        <button id="me-btn" class="me" title="Change the name that shows next to your changes"><svg class="ic"><use href="#i-user"/></svg><span></span></button>
+        <button id="me-btn" class="me" title="Change the name that shows next to your changes"><svg class="ic"><use href="#i-user"/></svg><span></span><b class="officer-tag" hidden>Officer</b></button>
         <button id="logout-btn" class="icon-btn" aria-label="Log out" title="Log out"><svg class="ic"><use href="#i-exit"/></svg></button>
       </div>
     </header>
@@ -98,6 +98,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
         <button class="btn" type="button" id="name-cancel">Cancel</button>
         <button class="btn btn-primary" value="save">Save</button>
+      </div>
+      <p id="officer-row" class="officer-row"></p>
+    </form>
+  </dialog>
+
+  <!-- Officer mode: the C-suite adds, edits and deletes to-dos -->
+  <dialog id="officer-dialog" class="name-dialog" aria-labelledby="officer-title">
+    <form id="officer-form" autocomplete="off">
+      <h2 id="officer-title">Officer sign-in</h2>
+      <p class="hint">For the C-suite. Officers add, edit and delete the team to-dos. Everyone can still check them off and assign themselves.</p>
+      <label class="sr" for="officer-pass">Officer passcode</label>
+      <input id="officer-pass" type="password" required autocomplete="current-password" placeholder="Officer passcode">
+      <p id="officer-error" class="error" role="alert"></p>
+      <div class="toolbar" style="justify-content:flex-end;margin-top:6px">
+        <button class="btn" type="button" id="officer-cancel">Cancel</button>
+        <button class="btn btn-primary" type="submit">Sign in</button>
       </div>
     </form>
   </dialog>

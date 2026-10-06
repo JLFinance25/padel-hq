@@ -6,11 +6,11 @@ The shared calendar and department to-do lists for our Virtual Enterprise firm (
 - **Updates:** post a short note for the class, plus an automatic "just added" feed of who changed what.
 - **Season line:** the whole year on one transit-style map, with the Circles of Excellence periods.
 - **Month:** a normal month calendar; tap a day to see its items.
-- **Team tabs:** Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Each is a to-do list with a description, an owner and a due date.
+- **Team tabs:** Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Each is a to-do list with a description, an owner and a due date. Only officers (the C-suite) add, edit and delete to-dos; everyone can check them off and assign themselves.
 - **Circles of Excellence:** VE's 2026–27 point checklist (60 points plus up to 4 bonus), with a bar showing how close we are to Gold (90%).
 - **Log:** every change, who made it and when.
 
-Everyone who has the class passcode sees and edits the same data.
+Everyone who has the class passcode sees and edits the same data, except to-dos, which only officers manage. Officers sign in with a separate officer passcode (on the lock screen, or from the name button at the top right), and the server checks it on every to-do change. On the Log tab, officers can also clear all to-dos to start the lists over.
 
 ## Privacy
 
@@ -19,7 +19,7 @@ This repo holds **code only**. The firm's calendar, to-dos and names live in the
 ## How it works
 
 - `public/` is the website (plain HTML, CSS and JavaScript, no build step). The JavaScript is split by part of the site: `js/core.js` (data, dates, saving), `js/board.js` (home board, Updates, season line), `js/views.js` (Month, team tabs, Circles, Log), `js/drawer.js` (the detail panel), `js/main.js` (login, tabs, clicks, keyboard).
-- `api/` holds the small server functions Vercel runs: `login` (checks the class passcode), `data` (loads everything), `item` (saves, edits or deletes one thing; edits merge onto the newest copy so nobody overwrites a classmate), `import` (loads the starter data, never overwriting).
+- `api/` holds the small server functions Vercel runs: `login` (checks the class passcode), `data` (loads everything), `item` (saves, edits or deletes one thing; edits merge onto the newest copy so nobody overwrites a classmate; to-do changes need officer mode), `import` (loads the starter calendar and Circles checklist, never overwriting and never to-dos).
 - The data is stored in Upstash Redis, a free database that plugs into Vercel.
 - `PRODUCT.md` says who this is for and why; `DESIGN.md` is the style guide (colors, type, the board) so changes stay consistent.
 - The board lettering is Big Shoulders (SIL Open Font License), hosted in `public/fonts/`.
@@ -28,15 +28,15 @@ This repo holds **code only**. The firm's calendar, to-dos and names live in the
 
 1. Import this GitHub repo at vercel.com/new. Leave the framework as "Other". No build command is needed.
 2. In the project, open **Storage**, add **Upstash for Redis** (free plan) and connect it to the project. This adds the database settings automatically.
-3. In **Settings → Environment Variables**, add `CLASS_PASSCODE` with the passcode the class will use. Optionally add `SESSION_SECRET` (any long random text).
+3. In **Settings → Environment Variables**, add `CLASS_PASSCODE` with the passcode the class will use, and `OFFICER_PASSCODE` with a different one that only the officers know. Optionally add `SESSION_SECRET` (any long random text).
 4. Redeploy. Open the site, enter the passcode, go to the **Log** tab, open **Setup: load starter data** and choose `seed.json`.
 
-Changing `CLASS_PASSCODE` logs everyone out, which is how you lock someone out.
+Changing `CLASS_PASSCODE` logs everyone out, which is how you lock someone out. Changing `OFFICER_PASSCODE` only takes officer mode away from everyone; they stay logged in.
 
 ## Running it on your own computer
 
 ```bash
-CLASS_PASSCODE=pick-anything node dev-server.mjs
+CLASS_PASSCODE=pick-anything OFFICER_PASSCODE=something-else node dev-server.mjs
 ```
 
 Then open http://localhost:3030. With no database connected, data is saved in `.data/db.json` on your computer.

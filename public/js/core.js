@@ -46,6 +46,7 @@ const S = {
   month: startOfMonth(new Date()), sel: null, slide: '', monthTeam: 'all', monthTasks: false,
   taskFilter: 'all', showDone: false,
   me: store('phq_me') || '',
+  officer: false, // signed in with the officer passcode: may add, edit and delete to-dos (the server checks too)
 };
 
 // ---------- Small helpers ----------
@@ -192,6 +193,7 @@ async function api(path, opts = {}) {
   let body = {};
   try { body = await r.json(); } catch { /* empty */ }
   if (r.status === 401 && !path.includes('login')) { showLogin(); throw new Error(body.error || 'Please log in'); }
+  if (r.status === 403 && S.officer) { S.officer = false; paintMe(); } // officer mode ran out (or its passcode changed)
   if (!r.ok) { const e = new Error(body.error || 'Something went wrong'); e.status = r.status; throw e; }
   return body;
 }

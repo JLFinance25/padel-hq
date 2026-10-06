@@ -82,6 +82,7 @@ function seg4(label, value, cls = '') {
 function paintDrawer() {
   const { collection, editing, defaults } = drawerState;
   const item = currentItem();
+  const canEdit = collection !== 'tasks' || S.officer; // to-dos are added, edited and deleted by officers only
   const d = $('#drawer');
   d.classList.toggle('editing', editing);
   const word = collection === 'events' ? 'calendar item' : collection === 'tasks' ? 'to-do' : 'checklist item';
@@ -144,7 +145,7 @@ function paintDrawer() {
     <div class="drawer-body">
       <div class="segs">${segs}</div>
       ${collection === 'events' ? `<p class="status-help">${esc(STATUS_HELP[item.status || (item.date ? 'internal' : 'nodate')] || '')}</p>` : ''}
-      <p class="desc">${esc(item.desc || 'No description yet. Tap Edit to add one.')}</p>
+      <p class="desc">${esc(item.desc || (canEdit ? 'No description yet. Tap Edit to add one.' : 'No description yet.'))}</p>
       ${item.notes ? `<p class="meta"><b>Our notes</b></p><p class="desc">${esc(item.notes)}</p>` : ''}
       ${coeLink ? `<p class="meta">Counts toward Circles of Excellence: <a href="#" data-open="coe:${esc(coeLink.id)}">${esc(coeLink.title)}</a> (+${esc(coeLink.points)})</p>` : ''}
       ${linked.length ? `<p class="meta">Linked to-dos: ${linked.map((t) => `<a href="#" data-open="tasks:${esc(t.id)}">${esc(t.title)}</a>${t.done ? ' (done)' : ''}`).join(', ')}</p>` : ''}
@@ -155,7 +156,7 @@ function paintDrawer() {
       ${collection !== 'events' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : '<span></span>'}
       <span class="toolbar">
         ${collection === 'tasks' && !item.done && !ownerMatches(item.owner, S.me) ? `<button class="btn" data-act="take">${icon('user')}Assign to me</button>` : ''}
-        <button class="btn" data-act="edit">${icon('edit')}Edit</button>
+        ${canEdit ? `<button class="btn" data-act="edit">${icon('edit')}Edit</button>` : ''}
       </span>
     </div>`;
 }

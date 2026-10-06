@@ -1,4 +1,4 @@
-// Run the site on your own computer: CLASS_PASSCODE=test node dev-server.mjs
+// Run the site on your own computer: CLASS_PASSCODE=test OFFICER_PASSCODE=boss node dev-server.mjs
 // It serves /public and sends /api/* to the same files Vercel uses. Data goes to .data/db.json.
 import http from 'node:http';
 import fs from 'node:fs';

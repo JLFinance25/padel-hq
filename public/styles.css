@@ -366,8 +366,6 @@ main { max-width: 1280px; margin: 0 auto; padding: 22px 24px 72px; outline: none
 .cells i { width: 12px; height: 16px; border-radius: 2px; background: var(--paper-2); border: 1px solid var(--line); }
 .cells i.on { background: var(--green); border-color: var(--green); }
 .stat-text { font-size: 13px; color: var(--muted); }
-.addbar { display: flex; gap: 8px; margin-bottom: 14px; }
-.addbar input { flex: 1; }
 .group-title { display: flex; align-items: center; gap: 10px; margin: 22px 0 8px; font: 600 14px/1 var(--board-font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .group-title.red { color: var(--red); }
 .empty { text-align: center; color: var(--muted); padding: 40px 16px; border: 1px dashed var(--line-2); border-radius: 14px; background: var(--surface); }
@@ -639,8 +637,6 @@ select { appearance: none; -webkit-appearance: none; background-image: url("data
 
 /* Team page: no label above the heading */
 .plat { display: none; }
-.addbar input[type=date] { flex: 0 0 160px; }
-@media (max-width: 680px) { .addbar { flex-wrap: wrap; } .addbar input[type=text] { flex: 1 1 100%; } .addbar input[type=date] { flex: 1 1 auto; } }
 
 /* Feed: non-link lines look like plain text */
 div.feed-item { cursor: default; }
@@ -679,8 +675,6 @@ details.panel[open] summary { margin-bottom: 8px; }
 .chip-ev.band[style*="--span"] .chip-text { flex: none; }
 @media (max-width: 680px) {
   .legend-light .key-hint { display: none; }
-  .addbar input[type=date] { width: auto; flex: 1 1 0; min-width: 0; }
-  .addbar .btn { flex: none; }
 }
 
 /* Documenter follow-ups: define the band color token; all icon buttons are 40px tap targets */
@@ -802,3 +796,13 @@ main:focus-visible { outline: none; }
 
 /* Season line: same geometry on every screen as on a wide desktop, so stop labels and their pointer lines never collide; narrower screens scroll it sideways */
 .track { min-width: 1150px; }
+
+/* Officer mode: only the C-suite adds, edits and deletes to-dos */
+.team-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.officers-note { margin: 0; font-size: 13px; color: var(--muted); }
+.linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--green); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.linkish:hover { color: var(--green-hover); }
+.officer-tag { font: 700 11px/1 var(--board-font); letter-spacing: .1em; text-transform: uppercase; background: var(--board); color: var(--yellow); border-radius: 4px; padding: 3px 5px 2px; margin-left: 2px; }
+.officer-row { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed var(--line-2); font-size: 13px; color: var(--muted); }
+.name-dialog input[type=password] { margin-bottom: 4px; }
+@media (max-width: 680px) { .team-tools .btn { flex: 1 1 100%; } }

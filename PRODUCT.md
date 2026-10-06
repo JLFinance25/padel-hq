@@ -23,7 +23,7 @@ Built around how this firm is actually split up and how VE actually scores firms
 - Teams (tabs): Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Teams are by the work, not by officer title.
 - VE's year runs in six Circles of Excellence periods (Aug–Oct, Nov, Dec, Jan–Feb, Mar–Apr, May) plus fall and spring bonus windows.
 - Big moments: the national online competitions, the regional trade show and business plan competition, and the Youth Business Summit in April.
-- Anyone with the class passcode can view and edit everything. Changes are logged by the first name each person types in.
+- Anyone with the class passcode can view and edit everything except to-dos. Only officers (the C-suite, signed in with the officer passcode) add, edit and delete to-dos; everyone can check them off and assign themselves. Changes are logged by the first name each person types in.
 - Updates: anyone can post a short announcement (pinned on top), and an automatic feed shows what was just added, changed or checked off.
 
 ## Capabilities and Constraints

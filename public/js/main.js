@@ -19,7 +19,8 @@ $('#login-form').addEventListener('submit', async (e) => {
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Checking…';
   try {
-    await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
+    const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
+    S.officer = !!r.officer;
     S.me = $('#login-name').value.trim().slice(0, 40); store('phq_me', S.me);
     $('#login-pass').value = '';
     startApp();
@@ -30,7 +31,13 @@ $('#login-form').addEventListener('submit', async (e) => {
   }
 });
 
-function paintMe() { $('#me-btn span').textContent = S.me || 'Set your name'; }
+function paintMe() {
+  $('#me-btn span').textContent = S.me || 'Set your name';
+  $('#me-btn .officer-tag').hidden = !S.officer;
+  $('#officer-row').innerHTML = S.officer
+    ? `Signed in as an officer. <button class="linkish" type="button" data-act="officer-off">Leave officer mode</button>`
+    : `Officer? <button class="linkish" type="button" data-act="officer-on">Sign in with the officer passcode</button>`;
+}
 
 function startApp() {
   $('#login').hidden = true;
@@ -44,6 +51,7 @@ function startApp() {
 
 $('#logout-btn').addEventListener('click', async () => {
   await api('/api/login', { method: 'DELETE' }).catch(() => {});
+  S.officer = false; paintMe();
   showLogin();
 });
 
@@ -61,6 +69,57 @@ $('#name-form').addEventListener('submit', (e) => {
   S.me = n; store('phq_me', n); paintMe(); render();
   toast(`Your changes will show as ${n}`);
 });
+
+// Officer mode (C-suite only): turned on with the officer passcode, checked again by the server on every save.
+function openOfficerSignIn() {
+  if ($('#name-dialog').open) $('#name-dialog').close();
+  $('#officer-pass').value = '';
+  $('#officer-error').textContent = '';
+  $('#officer-dialog').showModal();
+  $('#officer-pass').focus();
+}
+function officerChanged() {
+  paintMe(); renderTabs(); render();
+  if (drawerState && !drawerState.editing) paintDrawer();
+}
+$('#officer-cancel').addEventListener('click', () => $('#officer-dialog').close());
+$('#officer-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#officer-pass').value, officer: true }) });
+    $('#officer-dialog').close();
+    S.officer = true; officerChanged();
+    toast('Officer mode on. You can add and edit to-dos.');
+  } catch (ex) {
+    $('#officer-error').textContent = ex.message;
+    $('#officer-pass').select();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+async function leaveOfficerMode() {
+  try { await api('/api/login?officer=1', { method: 'DELETE' }); } catch (ex) { toast(ex.message, true); return; }
+  if ($('#name-dialog').open) $('#name-dialog').close();
+  S.officer = false; officerChanged();
+  toast('Officer mode off');
+}
+
+// Officers can wipe every to-do and start the lists over (Log tab). Circles items and the calendar stay.
+async function clearAllTasks() {
+  const n = S.tasks.length;
+  if (!n || !confirm(`Delete ${n === 1 ? 'the 1 to-do' : `all ${n} to-dos`} on every team, for everyone? This can't be undone. The calendar and the Circles of Excellence checklist stay.`)) return;
+  try {
+    const r = await api(`/api/item?collection=tasks&all=1&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
+    S.tasks = [];
+    renderTabs(); render();
+    toast(`Cleared ${r.cleared} to-do${r.cleared === 1 ? '' : 's'}`);
+    refreshLogSoon();
+  } catch (ex) {
+    toast("Didn't clear: " + ex.message, true);
+  }
+}
 
 // ---------- Focus that survives repaints ----------
 // The page repaints often. Before it does, remember what had focus; afterwards, put focus back on the same thing.
@@ -136,7 +195,7 @@ function render() {
   const fk = focusKey(document.activeElement);
   const mapScroll = $('#linemap-scroll')?.scrollLeft;
   const railScroll = $('#updates-scroll')?.scrollTop;
-  const drafts = ['post-text', 'quick-title', 'quick-due'].map((id) => {
+  const drafts = ['post-text'].map((id) => {
     const el = document.getElementById(id);
     return el && { id, view: S.view, value: el.value, at: el.selectionStart, open: el.closest('form')?.classList.contains('open') };
   }).filter((k) => k && k.value);
@@ -205,7 +264,7 @@ document.addEventListener('click', async (e) => {
       if (!it) break;
       if (!S.me) { toast('Set your name at the top right first', true); break; }
       const owner = it.owner ? `${it.owner}, ${S.me}` : S.me;
-      try { await updateItem('tasks', it.id, { owner }); paintDrawer(); toast(`Assigned to ${S.me}. It's under Mine now.`); $('#drawer [data-act=edit]')?.focus(); } catch { /* shown */ }
+      try { await updateItem('tasks', it.id, { owner }); paintDrawer(); toast(`Assigned to ${S.me}. It's under Mine now.`); ($('#drawer [data-act=edit]') || $('#drawer [data-act=drawer-tick]'))?.focus(); } catch { /* shown */ }
       break;
     }
     case 'to-updates': e.preventDefault(); $('#updates')?.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' }); break;
@@ -222,6 +281,10 @@ document.addEventListener('click', async (e) => {
     case 'today': S.month = startOfMonth(new Date()); S.sel = todayKey(); render(); break;
     case 'pick-day': pickDay(el.dataset.day, true); break;
     case 'new-event': openDrawer('events', null, true); break;
+    case 'new-task': openDrawer('tasks', null, true); break;
+    case 'officer-on': openOfficerSignIn(); break;
+    case 'officer-off': leaveOfficerMode(); break;
+    case 'clear-tasks': clearAllTasks(); break;
     case 'tf': S.taskFilter = el.dataset.v; if (S.taskFilter === 'mine' && !S.me) toast('Set your name at the top right first', true); render(); break;
     case 'toggle-done': S.showDone = !S.showDone; render(); break;
     case 'close': closeDrawerSafely(); break;
@@ -259,23 +322,6 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('submit', async (e) => {
   const kind = e.target.dataset.form;
-  if (kind === 'quick-task') {
-    e.preventDefault();
-    const form = e.target;
-    const title = form.elements.title.value.trim();
-    const due = form.elements.due.value || null;
-    if (!title) { form.elements.title.focus(); return; }
-    if (due && !form.elements.due.checkValidity()) { form.elements.due.reportValidity(); return; }
-    form.elements.title.value = ''; form.elements.due.value = '';
-    try {
-      await createItem('tasks', { id: newId(title), dept: S.view, title, desc: '', due, owner: '', done: false, coe: null, source: '', createdAt: new Date().toISOString() });
-      toast(due ? 'Added' : 'Added. Tap it to add an owner and due date.');
-    } catch {
-      const t = $('#quick-title'); if (t) t.value = title; // keep what they typed
-      const d = $('#quick-due'); if (d) d.value = due || '';
-    }
-    $('#quick-title')?.focus();
-  }
   if (kind === 'post') {
     e.preventDefault();
     const form = e.target;
@@ -302,7 +348,7 @@ document.addEventListener('submit', async (e) => {
 $('#scrim').addEventListener('click', closeDrawerSafely);
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
+  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open && !$('#officer-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
   if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return; // leave browser shortcuts (like Back) alone
   if (drawerState || S.view !== 'month') return;
   const active = document.activeElement;
@@ -331,6 +377,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
   S.view = isView(v) ? v : 'board';
   try {
     const s = await api('/api/login');
+    S.officer = !!s.officer;
     if (s.loggedIn) startApp(); else showLogin();
   } catch {
     showLogin();

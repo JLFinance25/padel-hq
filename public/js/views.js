@@ -197,7 +197,7 @@ function viewTeam(id) {
   ];
   const doneList = list.filter((t) => t.done).sort(byDue);
   const seg = (v, label) => `<button data-act="tf" data-v="${v}" aria-pressed="${S.taskFilter === v}">${label}</button>`;
-  const emptyMsg = all.length === 0 ? '<b>No to-dos here yet.</b>Add the first one above.'
+  const emptyMsg = all.length === 0 ? (S.officer ? '<b>No to-dos here yet.</b>Tap “Add to-do” to add the first one.' : '<b>No to-dos here yet.</b>Officers add them here.')
     : S.taskFilter === 'mine' ? (S.me ? `<b>Nothing here is assigned to ${esc(S.me)}.</b>Open a to-do and put your name in “Who owns it”.` : '<b>Set your name first.</b>Tap the name button at the top right.')
     : S.taskFilter === 'unassigned' ? '<b>Everything here has an owner.</b>' : '<b>All done.</b>Every to-do here is checked off.';
 
@@ -209,14 +209,12 @@ function viewTeam(id) {
         <span class="stat-num">${flap('team-' + id, `${done.length}/${all.length}`)}</span>
         <div class="cells" role="img" aria-label="${done.length} of ${all.length} done">${all.map((t) => `<i class="${t.done ? 'on' : ''}"></i>`).join('')}</div></div>
     </div>
-    <form class="addbar" data-form="quick-task">
-      <label class="sr" for="quick-title">New to-do for ${esc(d.name)}</label>
-      <input id="quick-title" type="text" name="title" placeholder="Add a to-do for ${esc(d.name)}…" maxlength="160" autocomplete="off">
-      <label class="sr" for="quick-due">Due date (optional)</label>
-      <input id="quick-due" type="date" name="due" min="${DATE_MIN}" max="${DATE_MAX}" title="Due date (optional)">
-      <button class="btn btn-primary" type="submit">${icon('plus')}Add</button>
-    </form>
-    <div class="seg" role="group" aria-label="Filter">${seg('all', 'Everything')}${seg('mine', 'Mine')}${seg('unassigned', 'Unassigned')}</div>
+    <div class="team-tools">
+      <div class="seg" role="group" aria-label="Filter">${seg('all', 'Everything')}${seg('mine', 'Mine')}${seg('unassigned', 'Unassigned')}</div>
+      ${S.officer
+        ? `<button class="btn btn-primary" data-act="new-task">${icon('plus')}Add to-do</button>`
+        : `<p class="officers-note">Officers add to-dos. <button class="linkish" type="button" data-act="officer-on">Officer sign-in</button></p>`}
+    </div>
     ${circles.length && S.taskFilter === 'all' ? `<p class="hint" style="font-size:13px;margin:10px 0 0">Includes ${circles.length} Circles of Excellence item${circles.length === 1 ? '' : 's'} for this team, tagged “Circles”. Checking one here checks it on the Circles tab too.</p>` : ''}
     ${open.length === 0 ? `<p class="empty" style="margin-top:16px">${emptyMsg}</p>` : ''}
     ${groups.filter((g) => g.items.length).map((g) => `
@@ -295,9 +293,15 @@ function viewLog() {
   const empty = !S.events.length && !S.tasks.length && !S.coe.length;
   const importPanel = `<details class="panel" ${empty ? 'open' : ''}>
       <summary>Setup: load starter data</summary>
-      <p>For whoever sets the site up. Adds the researched calendar, the to-dos and the Circles of Excellence checklist from a <code>seed.json</code> file. It only adds items that aren't here yet, so it never overwrites anyone's changes.</p>
+      <p>For whoever sets the site up. Adds the researched calendar and the Circles of Excellence checklist from a <code>seed.json</code> file (not to-dos; officers add those). It only adds items that aren't here yet, so it never overwrites anyone's changes.</p>
       <input type="file" accept="application/json,.json" data-act="import" aria-label="Choose seed.json">
     </details>`;
+  const allTasks = S.tasks.length === 1 ? 'the 1 to-do' : `all ${S.tasks.length} to-dos`;
+  const clearPanel = S.officer && S.tasks.length ? `<details class="panel">
+      <summary>Officers: clear all to-dos</summary>
+      <p>Deletes ${allTasks} on every team so the lists can start over. The calendar, the Circles of Excellence checklist and updates stay.</p>
+      <button class="btn btn-danger" type="button" data-act="clear-tasks">${icon('trash')}Clear ${allTasks}</button>
+    </details>` : '';
   const lines = logLines(100);
   return `
     <div class="page-head"><div><h1>Log</h1><p>Every change anyone makes, newest first. The last 100 show here.</p></div></div>
@@ -311,7 +315,8 @@ function viewLog() {
         <span class="r-side"><time class="log-when" datetime="${esc(l.t)}">${esc(ago(l.t))}</time></span>
       </li>`;
     }).join('')}</ul>` : '<p class="empty"><b>No changes yet.</b>Everything anyone adds, edits or checks off will show here.</p>'}
-    ${empty ? '' : importPanel}`;
+    ${empty ? '' : importPanel}
+    ${clearPanel}`;
 }
 
 async function importFile(file) {

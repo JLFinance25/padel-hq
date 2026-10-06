@@ -45,7 +45,7 @@ export function query(req) {
   return new URL(req.url, 'http://x').searchParams;
 }
 
-// ---------- Session (one class passcode) ----------
+// ---------- Session (the class passcode, plus an officer passcode for the C-suite) ----------
 
 function secret() {
   const pass = process.env.CLASS_PASSCODE;
@@ -54,49 +54,63 @@ function secret() {
   return crypto.createHash('sha256').update((process.env.SESSION_SECRET || '') + '|' + pass).digest();
 }
 
-function sign(payload) {
-  return crypto.createHmac('sha256', secret()).update(payload).digest('base64url');
+// Officers sign in with OFFICER_PASSCODE. Officer mode lives in its own cookie, so changing that
+// passcode takes officer mode away from everyone without logging the whole class out.
+function officerSecret() {
+  const pass = process.env.OFFICER_PASSCODE;
+  const base = secret();
+  if (!pass || !base) return null;
+  return crypto.createHash('sha256').update(base).update('|officer|' + pass).digest();
 }
 
-export function passcodeMatches(given) {
-  const pass = process.env.CLASS_PASSCODE;
+function sign(key, payload) {
+  return crypto.createHmac('sha256', key).update(payload).digest('base64url');
+}
+
+function matches(given, pass) {
   if (!pass || typeof given !== 'string') return false;
   const a = crypto.createHash('sha256').update(given.trim()).digest();
   const b = crypto.createHash('sha256').update(pass.trim()).digest();
   return crypto.timingSafeEqual(a, b);
 }
+export const passcodeMatches = (given) => matches(given, process.env.CLASS_PASSCODE);
+export const officerPasscodeMatches = (given) => matches(given, process.env.OFFICER_PASSCODE);
 
-export function sessionCookie(req) {
+function makeCookie(req, name, key) {
   const exp = Date.now() + SESSION_DAYS * 86400_000;
   const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
-  const token = payload + '.' + sign(payload);
+  const token = payload + '.' + sign(key, payload);
   const secure = isHttps(req) ? '; Secure' : '';
-  return `phq_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`;
+  return `${name}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`;
 }
+export const sessionCookie = (req) => makeCookie(req, 'phq_session', secret());
+export const officerCookie = (req) => makeCookie(req, 'phq_officer', officerSecret());
 
-export function clearCookie() {
-  return 'phq_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
-}
+export const clearCookie = (name = 'phq_session') => `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+export const clearOfficerCookie = () => clearCookie('phq_officer');
 
 function isHttps(req) {
   return (req.headers['x-forwarded-proto'] || '').includes('https');
 }
 
-export function isLoggedIn(req) {
-  if (!secret()) return false;
+function cookieValid(req, name, key) {
+  if (!key) return false;
   const cookie = req.headers.cookie || '';
-  const m = cookie.match(/(?:^|;\s*)phq_session=([^;]+)/);
+  const m = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   if (!m) return false;
   const [payload, sig] = m[1].split('.');
   if (!payload || !sig) return false;
   try {
-    const a = Buffer.from(sig), b = Buffer.from(sign(payload));
+    const a = Buffer.from(sig), b = Buffer.from(sign(key, payload));
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
     return JSON.parse(Buffer.from(payload, 'base64url').toString()).exp > Date.now();
   } catch {
     return false;
   }
 }
+
+export const isLoggedIn = (req) => cookieValid(req, 'phq_session', secret());
+export const isOfficer = (req) => isLoggedIn(req) && cookieValid(req, 'phq_officer', officerSecret());
 
 // Returns true if the request may continue; otherwise it has already answered.
 export function requireLogin(req, res) {
@@ -288,12 +302,34 @@ export async function deleteItem(collection, id, who, title) {
   ]);
 }
 
+// Empties one whole list (officers use it to start the to-dos over). Returns how many were removed.
+export async function clearCollection(collection, who, word) {
+  const what = (n) => `all ${word} (${n})`;
+  if (usingFile()) {
+    const db = fileLoad();
+    const n = Object.keys(db[collection] || {}).length;
+    db[collection] = {};
+    db.log.unshift(logEntry(who, 'cleared', 'all', what(n)));
+    db.log = db.log.slice(0, LOG_KEEP);
+    fileSave(db);
+    return n;
+  }
+  const [n] = await redis([['HLEN', PREFIX + collection]]);
+  await redis([
+    ['DEL', PREFIX + collection],
+    ['LPUSH', LOG_KEY, JSON.stringify(logEntry(who, 'cleared', 'all', what(n)))],
+    ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
+  ]);
+  return Number(n) || 0;
+}
+
 // Adds only items whose id is not already there, so importing twice never overwrites anyone's edits.
 export async function importItems(data, who) {
   const counts = { added: 0, skipped: 0 };
   const now = new Date().toISOString();
   const rows = [];
   for (const collection of COLLECTIONS) {
+    if (collection === 'tasks') continue; // to-dos come from officers in the app, never from the starter file
     const list = Array.isArray(data[collection]) ? data[collection] : [];
     for (const item of list) {
       if (checkItem(collection, item)) { counts.skipped++; continue; }
