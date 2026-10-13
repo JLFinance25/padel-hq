@@ -79,6 +79,7 @@ function openOfficerSignIn() {
   $('#officer-pass').focus();
 }
 function officerChanged() {
+  if (!S.officer && S.view === 'officers') { location.hash = 'board'; return paintMe(); } // route() repaints
   paintMe(); renderTabs(); render();
   if (drawerState && !drawerState.editing) paintDrawer();
 }
@@ -121,6 +122,26 @@ async function clearAllTasks() {
   }
 }
 
+// The Officers page's quick-add form. The form is cleared before saving so a second click can't add it twice;
+// the team stays picked for the next one.
+async function addOfficerTask(form) {
+  const f = form.elements;
+  const title = f.title.value.trim();
+  if (!title) { f.title.setCustomValidity('Give it a title.'); f.title.reportValidity(); f.title.setCustomValidity(''); return; }
+  if (!f.due.checkValidity()) { f.due.reportValidity(); return; }
+  const data = { title, dept: f.dept.value, due: f.due.value || null, owner: f.owner.value.trim(), desc: f.desc.value.trim() };
+  S.officerTeam = store('phq_officer_team', data.dept);
+  for (const k of ['title', 'due', 'owner', 'desc']) f[k].value = '';
+  try {
+    await createItem('tasks', { id: newId(title), done: false, createdAt: new Date().toISOString(), coe: null, source: '', ...data });
+    toast(`Added to ${dept(data.dept).name}`);
+    $('#ot-title')?.focus();
+  } catch {
+    const g = $('[data-form="officer-task"]')?.elements; // the save failed: put back what they typed
+    if (g) { g.title.value = title; g.dept.value = data.dept; g.due.value = data.due || ''; g.owner.value = data.owner; g.desc.value = data.desc; g.title.focus(); }
+  }
+}
+
 // ---------- Focus that survives repaints ----------
 // The page repaints often. Before it does, remember what had focus; afterwards, put focus back on the same thing.
 
@@ -140,7 +161,7 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-const isView = (v) => ['board', 'month', 'coe', 'log'].includes(v) || DEPTS.some((d) => d.id === v);
+const isView = (v) => ['board', 'month', 'coe', 'log', 'officers'].includes(v) || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
   const tab = (id, label, ic = '', count = 0, hot = false, title = '') =>
@@ -157,7 +178,8 @@ function renderTabs() {
       return tab(d.id, d.name, '', open, hot, `${open} open to-dos${hot ? ', some changed since you last looked' : ''}`);
     }).join('') +
     '<span class="tab-sep" aria-hidden="true"></span>' +
-    tab('log', 'Log');
+    tab('log', 'Log') +
+    (S.officer ? tab('officers', 'Officers', 'flag', 0, false, 'Officers only: add to-dos for any team') : '');
 }
 
 function route() {
@@ -195,7 +217,7 @@ function render() {
   const fk = focusKey(document.activeElement);
   const mapScroll = $('#linemap-scroll')?.scrollLeft;
   const railScroll = $('#updates-scroll')?.scrollTop;
-  const drafts = ['post-text'].map((id) => {
+  const drafts = ['post-text', 'ot-title', 'ot-dept', 'ot-due', 'ot-owner', 'ot-desc'].map((id) => {
     const el = document.getElementById(id);
     return el && { id, view: S.view, value: el.value, at: el.selectionStart, open: el.closest('form')?.classList.contains('open') };
   }).filter((k) => k && k.value);
@@ -205,6 +227,7 @@ function render() {
   else if (S.view === 'month') main.innerHTML = viewMonth();
   else if (S.view === 'coe') main.innerHTML = viewCoe();
   else if (S.view === 'log') main.innerHTML = viewLog();
+  else if (S.view === 'officers') main.innerHTML = viewOfficers();
   else main.innerHTML = viewTeam(S.view);
   render.lastView = S.view;
 
@@ -342,6 +365,7 @@ document.addEventListener('submit', async (e) => {
       if (ta) { ta.value = text; ta.closest('form').classList.add('open'); ta.focus(); }
     }
   }
+  if (kind === 'officer-task') { e.preventDefault(); addOfficerTask(e.target); }
   if (e.target.id === 'edit-form') { e.preventDefault(); saveDrawer(); }
 });
 

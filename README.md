@@ -7,6 +7,7 @@ The shared calendar and department to-do lists for our Virtual Enterprise firm (
 - **Season line:** the whole year on one transit-style map, with the Circles of Excellence periods.
 - **Month:** a normal month calendar; tap a day to see its items.
 - **Team tabs:** Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Each is a to-do list with a description, an owner and a due date. Only officers (the C-suite) add, edit and delete to-dos; everyone can check them off and assign themselves.
+- **Officers (officers only):** a tab that only shows in officer mode. Add a to-do for any team from one form, see every team's open to-dos in one place, and clear all to-dos.
 - **Circles of Excellence:** VE's 2026–27 point checklist (60 points plus up to 4 bonus), with a bar showing how close we are to Gold (90%).
 - **Log:** every change, who made it and when.
 

@@ -806,3 +806,10 @@ main:focus-visible { outline: none; }
 .officer-row { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed var(--line-2); font-size: 13px; color: var(--muted); }
 .name-dialog input[type=password] { margin-bottom: 4px; }
 @media (max-width: 680px) { .team-tools .btn { flex: 1 1 100%; } }
+.officer-add { margin-top: 0; }
+.officer-add .form { padding-top: 6px; }
+.officer-add textarea { min-height: 70px; }
+.form .three { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 10px; }
+@media (max-width: 680px) { .form .three { grid-template-columns: 1fr; } .officer-add .toolbar .btn { width: 100%; justify-content: center; } }
+.group-title a { color: inherit; text-decoration: none; }
+.group-title a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

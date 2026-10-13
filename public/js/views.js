@@ -225,6 +225,50 @@ function viewTeam(id) {
       ${S.showDone ? `<ul class="ruled">${doneList.map(teamRowHtml).join('')}</ul>` : ''}` : ''}`;
 }
 
+// ---------- Officers (C-suite only): add to-dos for any team, and see every team's list in one place ----------
+
+function viewOfficers() {
+  if (!S.officer) return `
+    <div class="page-head"><div><h1>Officers</h1><p>This page is for the C-suite.</p></div></div>
+    <p class="empty"><b>Officers only.</b><button class="linkish" type="button" data-act="officer-on">Sign in with the officer passcode</button></p>`;
+  const lastTeam = DEPTS.some((d) => d.id === S.officerTeam) ? S.officerTeam : 'firm';
+  const open = S.tasks.filter((t) => !t.done);
+  const unowned = open.filter((t) => !t.owner).length;
+  const late = open.filter((t) => t.due && daysUntil(t.due) < 0).length;
+  const allTasks = S.tasks.length === 1 ? 'the 1 to-do' : `all ${S.tasks.length} to-dos`;
+  return `
+    <div class="page-head">
+      <div><h1>Officers</h1><p>Add to-dos for any team and see every team's list in one place. Only officers see this page.</p></div>
+      <div class="team-stat"><span class="stat-label">Open</span><span class="stat-num">${flap('officers-open', String(open.length))}</span>
+        <span class="hint" style="font-size:13px">${unowned} unassigned · ${late} overdue</span></div>
+    </div>
+    <section class="panel officer-add" aria-labelledby="ot-head">
+      <h3 id="ot-head">Add a to-do</h3>
+      <form class="form" data-form="officer-task" novalidate>
+        <label for="ot-title">To-do<input id="ot-title" type="text" name="title" required maxlength="160" autocomplete="off"></label>
+        <div class="three">
+          <label for="ot-dept">Team<select id="ot-dept" name="dept">${DEPTS.map((d) => `<option value="${d.id}" ${d.id === lastTeam ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
+          <label for="ot-due">Due<input id="ot-due" type="date" name="due" min="${DATE_MIN}" max="${DATE_MAX}"></label>
+          <label for="ot-owner">Who owns it<input id="ot-owner" type="text" name="owner" maxlength="400" list="ot-owners" autocomplete="off" placeholder="First names, comma between"></label>
+        </div>
+        <datalist id="ot-owners">${[...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean))].map((o) => `<option value="${esc(o)}">`).join('')}</datalist>
+        <label for="ot-desc">Description: what done looks like<textarea id="ot-desc" name="desc" maxlength="2000"></textarea></label>
+        <div class="toolbar"><button class="btn btn-primary" type="submit">${icon('plus')}Add to-do</button></div>
+      </form>
+    </section>
+    ${DEPTS.map((d) => {
+      const list = S.tasks.filter((t) => t.dept === d.id && !t.done).sort(byDue);
+      const done = S.tasks.filter((t) => t.dept === d.id && t.done).length;
+      return `<h2 class="group-title"><a href="#${d.id}">${esc(d.name)}</a> · ${list.length} open${done ? `, ${done} done` : ''}</h2>
+        ${list.length ? `<ul class="ruled">${list.map(taskRowHtml).join('')}</ul>` : '<p class="hint" style="font-size:14px;margin:0">No open to-dos.</p>'}`;
+    }).join('')}
+    ${S.tasks.length ? `<details class="panel">
+      <summary>Clear all to-dos</summary>
+      <p>Deletes ${allTasks} on every team so the lists can start over. The calendar, the Circles of Excellence checklist and updates stay.</p>
+      <button class="btn btn-danger" type="button" data-act="clear-tasks">${icon('trash')}Clear ${allTasks}</button>
+    </details>` : ''}`;
+}
+
 // ---------- Circles of Excellence ----------
 
 function coeScore() {

@@ -45,6 +45,7 @@ const S = {
   boardFilter: 'dates', boardTeam: 'all', boardFull: false, showLate: false, olderPosts: false,
   month: startOfMonth(new Date()), sel: null, slide: '', monthTeam: 'all', monthTasks: false,
   taskFilter: 'all', showDone: false,
+  officerTeam: store('phq_officer_team') || 'firm', // the Officers page remembers the last team you added a to-do for
   me: store('phq_me') || '',
   officer: false, // signed in with the officer passcode: may add, edit and delete to-dos (the server checks too)
 };
