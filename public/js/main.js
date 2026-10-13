@@ -19,8 +19,7 @@ $('#login-form').addEventListener('submit', async (e) => {
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Checking…';
   try {
-    const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
-    S.officer = !!r.officer;
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
     S.me = $('#login-name').value.trim().slice(0, 40); store('phq_me', S.me);
     $('#login-pass').value = '';
     startApp();
@@ -33,10 +32,6 @@ $('#login-form').addEventListener('submit', async (e) => {
 
 function paintMe() {
   $('#me-btn span').textContent = S.me || 'Set your name';
-  $('#me-btn .officer-tag').hidden = !S.officer;
-  $('#officer-row').innerHTML = S.officer
-    ? `Signed in as an officer. <button class="linkish" type="button" data-act="officer-off">Leave officer mode</button>`
-    : `Officer? <button class="linkish" type="button" data-act="officer-on">Sign in with the officer passcode</button>`;
 }
 
 function startApp() {
@@ -51,7 +46,6 @@ function startApp() {
 
 $('#logout-btn').addEventListener('click', async () => {
   await api('/api/login', { method: 'DELETE' }).catch(() => {});
-  S.officer = false; paintMe();
   showLogin();
 });
 
@@ -70,44 +64,7 @@ $('#name-form').addEventListener('submit', (e) => {
   toast(`Your changes will show as ${n}`);
 });
 
-// Officer mode (C-suite only): turned on with the officer passcode, checked again by the server on every save.
-function openOfficerSignIn() {
-  if ($('#name-dialog').open) $('#name-dialog').close();
-  $('#officer-pass').value = '';
-  $('#officer-error').textContent = '';
-  $('#officer-dialog').showModal();
-  $('#officer-pass').focus();
-}
-function officerChanged() {
-  if (!S.officer && S.view === 'officers') { location.hash = 'board'; return paintMe(); } // route() repaints
-  paintMe(); renderTabs(); render();
-  if (drawerState && !drawerState.editing) paintDrawer();
-}
-$('#officer-cancel').addEventListener('click', () => $('#officer-dialog').close());
-$('#officer-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.disabled = true; btn.textContent = 'Checking…';
-  try {
-    await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#officer-pass').value, officer: true }) });
-    $('#officer-dialog').close();
-    S.officer = true; officerChanged();
-    toast('Officer mode on. You can add and edit to-dos.');
-  } catch (ex) {
-    $('#officer-error').textContent = ex.message;
-    $('#officer-pass').select();
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sign in';
-  }
-});
-async function leaveOfficerMode() {
-  try { await api('/api/login?officer=1', { method: 'DELETE' }); } catch (ex) { toast(ex.message, true); return; }
-  if ($('#name-dialog').open) $('#name-dialog').close();
-  S.officer = false; officerChanged();
-  toast('Officer mode off');
-}
-
-// Officers can wipe every to-do and start the lists over (Log tab). Circles items and the calendar stay.
+// Anyone can wipe every to-do and start the lists over (Log tab). Circles items and the calendar stay.
 async function clearAllTasks() {
   const n = S.tasks.length;
   if (!n || !confirm(`Delete ${n === 1 ? 'the 1 to-do' : `all ${n} to-dos`} on every team, for everyone? This can't be undone. The calendar and the Circles of Excellence checklist stay.`)) return;
@@ -122,25 +79,24 @@ async function clearAllTasks() {
   }
 }
 
-// The Officers page's quick-add form. The form is cleared before saving so a second click can't add it twice;
+// The Add page's form. The form is cleared before saving so a second click can't add it twice;
 // the team stays picked for the next one.
-async function addOfficerTask(form) {
+async function addTask(form) {
   const f = form.elements;
   const title = f.title.value.trim();
   if (!title) { f.title.setCustomValidity('Give it a title.'); f.title.reportValidity(); f.title.setCustomValidity(''); return; }
   if (!f.due.checkValidity()) { f.due.reportValidity(); return; }
   const data = { title, dept: f.dept.value, due: f.due.value || null, owner: f.owner.value.trim(), desc: f.desc.value.trim() };
-  S.officerTeam = store('phq_officer_team', data.dept);
+  S.addTeam = store('phq_add_team', data.dept);
   for (const k of ['title', 'due', 'owner', 'desc']) f[k].value = '';
   try {
     await createItem('tasks', { id: newId(title), done: false, createdAt: new Date().toISOString(), coe: null, source: '', ...data });
     toast(`Added to ${dept(data.dept).name}`);
-    $('#ot-title')?.focus();
+    $('#add-title')?.focus();
   } catch {
-    // The save failed: put back what they typed. If officer mode ran out, the form is gone for now,
-    // so it waits in S.officerDraft and comes back when they sign in as an officer again.
-    S.officerDraft = data;
-    if ($('[data-form="officer-task"]')) { render(); $('#ot-title')?.focus(); }
+    // The save failed: put back what they typed (the next repaint of the Add page fills it in).
+    S.addDraft = data;
+    if (S.view === 'add') { render(); $('#add-title')?.focus(); }
   }
 }
 
@@ -163,7 +119,7 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-const isView = (v) => ['board', 'month', 'coe', 'log', 'officers'].includes(v) || DEPTS.some((d) => d.id === v);
+const isView = (v) => ['board', 'month', 'coe', 'log', 'add'].includes(v) || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
   const tab = (id, label, ic = '', count = 0, hot = false, title = '') =>
@@ -180,8 +136,8 @@ function renderTabs() {
       return tab(d.id, d.name, '', open, hot, `${open} open to-dos${hot ? ', some changed since you last looked' : ''}`);
     }).join('') +
     '<span class="tab-sep" aria-hidden="true"></span>' +
-    tab('log', 'Log') +
-    (S.officer ? tab('officers', 'Officers', 'flag', 0, false, 'Officers only: add to-dos for any team') : '');
+    tab('add', 'Add to-do', 'plus', 0, false, 'Add a to-do for any team') +
+    tab('log', 'Log');
 }
 
 function route() {
@@ -219,7 +175,7 @@ function render() {
   const fk = focusKey(document.activeElement);
   const mapScroll = $('#linemap-scroll')?.scrollLeft;
   const railScroll = $('#updates-scroll')?.scrollTop;
-  const drafts = ['post-text', 'ot-title', 'ot-dept', 'ot-due', 'ot-owner', 'ot-desc'].map((id) => {
+  const drafts = ['post-text', 'add-title', 'add-dept', 'add-due', 'add-owner', 'add-desc'].map((id) => {
     const el = document.getElementById(id);
     return el && { id, view: S.view, value: el.value, at: el.selectionStart, open: el.closest('form')?.classList.contains('open') };
   }).filter((k) => k && k.value);
@@ -229,7 +185,7 @@ function render() {
   else if (S.view === 'month') main.innerHTML = viewMonth();
   else if (S.view === 'coe') main.innerHTML = viewCoe();
   else if (S.view === 'log') main.innerHTML = viewLog();
-  else if (S.view === 'officers') main.innerHTML = viewOfficers();
+  else if (S.view === 'add') main.innerHTML = viewAdd();
   else main.innerHTML = viewTeam(S.view);
   render.lastView = S.view;
 
@@ -307,8 +263,6 @@ document.addEventListener('click', async (e) => {
     case 'pick-day': pickDay(el.dataset.day, true); break;
     case 'new-event': openDrawer('events', null, true); break;
     case 'new-task': openDrawer('tasks', null, true); break;
-    case 'officer-on': openOfficerSignIn(); break;
-    case 'officer-off': leaveOfficerMode(); break;
     case 'clear-tasks': clearAllTasks(); break;
     case 'tf': S.taskFilter = el.dataset.v; if (S.taskFilter === 'mine' && !S.me) toast('Set your name at the top right first', true); render(); break;
     case 'toggle-done': S.showDone = !S.showDone; render(); break;
@@ -367,14 +321,14 @@ document.addEventListener('submit', async (e) => {
       if (ta) { ta.value = text; ta.closest('form').classList.add('open'); ta.focus(); }
     }
   }
-  if (kind === 'officer-task') { e.preventDefault(); addOfficerTask(e.target); }
+  if (kind === 'add-task') { e.preventDefault(); addTask(e.target); }
   if (e.target.id === 'edit-form') { e.preventDefault(); saveDrawer(); }
 });
 
 $('#scrim').addEventListener('click', closeDrawerSafely);
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open && !$('#officer-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
+  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
   if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return; // leave browser shortcuts (like Back) alone
   if (drawerState || S.view !== 'month') return;
   const active = document.activeElement;
@@ -403,7 +357,6 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
   S.view = isView(v) ? v : 'board';
   try {
     const s = await api('/api/login');
-    S.officer = !!s.officer;
     if (s.loggedIn) startApp(); else showLogin();
   } catch {
     showLogin();

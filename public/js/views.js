@@ -197,7 +197,7 @@ function viewTeam(id) {
   ];
   const doneList = list.filter((t) => t.done).sort(byDue);
   const seg = (v, label) => `<button data-act="tf" data-v="${v}" aria-pressed="${S.taskFilter === v}">${label}</button>`;
-  const emptyMsg = all.length === 0 ? (S.officer ? '<b>No to-dos here yet.</b>Tap “Add to-do” to add the first one.' : '<b>No to-dos here yet.</b>Officers add them here.')
+  const emptyMsg = all.length === 0 ? '<b>No to-dos here yet.</b>Tap “Add to-do” to add the first one.'
     : S.taskFilter === 'mine' ? (S.me ? `<b>Nothing here is assigned to ${esc(S.me)}.</b>Open a to-do and put your name in “Who owns it”.` : '<b>Set your name first.</b>Tap the name button at the top right.')
     : S.taskFilter === 'unassigned' ? '<b>Everything here has an owner.</b>' : '<b>All done.</b>Every to-do here is checked off.';
 
@@ -211,9 +211,7 @@ function viewTeam(id) {
     </div>
     <div class="team-tools">
       <div class="seg" role="group" aria-label="Filter">${seg('all', 'Everything')}${seg('mine', 'Mine')}${seg('unassigned', 'Unassigned')}</div>
-      ${S.officer
-        ? `<button class="btn btn-primary" data-act="new-task">${icon('plus')}Add to-do</button>`
-        : `<p class="officers-note">Officers add to-dos. <button class="linkish" type="button" data-act="officer-on">Officer sign-in</button></p>`}
+      <button class="btn btn-primary" data-act="new-task">${icon('plus')}Add to-do</button>
     </div>
     ${circles.length && S.taskFilter === 'all' ? `<p class="hint" style="font-size:13px;margin:10px 0 0">Includes ${circles.length} Circles of Excellence item${circles.length === 1 ? '' : 's'} for this team, tagged “Circles”. Checking one here checks it on the Circles tab too.</p>` : ''}
     ${open.length === 0 ? `<p class="empty" style="margin-top:16px">${emptyMsg}</p>` : ''}
@@ -225,36 +223,31 @@ function viewTeam(id) {
       ${S.showDone ? `<ul class="ruled">${doneList.map(teamRowHtml).join('')}</ul>` : ''}` : ''}`;
 }
 
-// ---------- Officers (C-suite only): add to-dos for any team, and see every team's list in one place ----------
+// ---------- Add: add a to-do for any team, and see every team's open to-dos in one place ----------
 
-function viewOfficers() {
-  if (!S.officer) return `
-    <div class="page-head"><div><h1>Officers</h1><p>This page is for the C-suite.</p></div></div>
-    <p class="empty"><b>Officers only.</b><button class="linkish" type="button" data-act="officer-on">Sign in with the officer passcode</button></p>`;
-  const dr = S.officerDraft || {}; // a to-do whose save failed, typed back in
-  S.officerDraft = null;
-  const lastTeam = DEPTS.some((d) => d.id === (dr.dept || S.officerTeam)) ? dr.dept || S.officerTeam : 'firm';
+function viewAdd() {
+  const dr = S.addDraft || {}; // a to-do whose save failed, typed back in
+  S.addDraft = null;
+  const lastTeam = DEPTS.some((d) => d.id === (dr.dept || S.addTeam)) ? dr.dept || S.addTeam : 'firm';
   const open = S.tasks.filter((t) => !t.done);
   const unowned = open.filter((t) => !t.owner).length;
   const late = open.filter((t) => t.due && daysUntil(t.due) < 0).length;
-  const allTasks = S.tasks.length === 1 ? 'the 1 to-do' : `all ${S.tasks.length} to-dos`;
   return `
     <div class="page-head">
-      <div><h1>Officers</h1><p>Add to-dos for any team and see every team's list in one place. Only officers see this page.</p></div>
-      <div class="team-stat"><span class="stat-label">Open</span><span class="stat-num">${flap('officers-open', String(open.length))}</span>
+      <div><h1>Add a to-do</h1><p>Add a to-do for any team. Every team's open to-dos are listed below, so you can check it isn't there already.</p></div>
+      <div class="team-stat"><span class="stat-label">Open</span><span class="stat-num">${flap('add-open', String(open.length))}</span>
         <span class="hint" style="font-size:13px">${unowned} unassigned · ${late} overdue</span></div>
     </div>
-    <section class="panel officer-add" aria-labelledby="ot-head">
-      <h3 id="ot-head">Add a to-do</h3>
-      <form class="form" data-form="officer-task" novalidate>
-        <label for="ot-title">To-do<input id="ot-title" type="text" name="title" value="${esc(dr.title)}" required maxlength="160" autocomplete="off"></label>
+    <section class="panel add-panel" aria-label="New to-do">
+      <form class="form" data-form="add-task" novalidate>
+        <label for="add-title">To-do<input id="add-title" type="text" name="title" value="${esc(dr.title)}" required maxlength="160" autocomplete="off"></label>
         <div class="three">
-          <label for="ot-dept">Team<select id="ot-dept" name="dept">${DEPTS.map((d) => `<option value="${d.id}" ${d.id === lastTeam ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
-          <label for="ot-due">Due<input id="ot-due" type="date" name="due" value="${esc(dr.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
-          <label for="ot-owner">Who owns it<input id="ot-owner" type="text" name="owner" value="${esc(dr.owner)}" maxlength="400" list="ot-owners" autocomplete="off" placeholder="First names, comma between"></label>
+          <label for="add-dept">Team<select id="add-dept" name="dept">${DEPTS.map((d) => `<option value="${d.id}" ${d.id === lastTeam ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
+          <label for="add-due">Due<input id="add-due" type="date" name="due" value="${esc(dr.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
+          <label for="add-owner">Who owns it<input id="add-owner" type="text" name="owner" value="${esc(dr.owner)}" maxlength="400" list="add-owners" autocomplete="off" placeholder="First names, comma between"></label>
         </div>
-        <datalist id="ot-owners">${[...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean))].map((o) => `<option value="${esc(o)}">`).join('')}</datalist>
-        <label for="ot-desc">Description: what done looks like<textarea id="ot-desc" name="desc" maxlength="2000">${esc(dr.desc)}</textarea></label>
+        <datalist id="add-owners">${[...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean).concat(S.me ? [S.me] : []))].map((o) => `<option value="${esc(o)}">`).join('')}</datalist>
+        <label for="add-desc">Description: what done looks like<textarea id="add-desc" name="desc" maxlength="2000">${esc(dr.desc)}</textarea></label>
         <div class="toolbar"><button class="btn btn-primary" type="submit">${icon('plus')}Add to-do</button></div>
       </form>
     </section>
@@ -263,12 +256,7 @@ function viewOfficers() {
       const done = S.tasks.filter((t) => t.dept === d.id && t.done).length;
       return `<h2 class="group-title"><a href="#${d.id}">${esc(d.name)}</a> · ${list.length} open${done ? `, ${done} done` : ''}</h2>
         ${list.length ? `<ul class="ruled">${list.map(taskRowHtml).join('')}</ul>` : '<p class="hint" style="font-size:14px;margin:0">No open to-dos.</p>'}`;
-    }).join('')}
-    ${S.tasks.length ? `<details class="panel">
-      <summary>Clear all to-dos</summary>
-      <p>Deletes ${allTasks} on every team so the lists can start over. The calendar, the Circles of Excellence checklist and updates stay.</p>
-      <button class="btn btn-danger" type="button" data-act="clear-tasks">${icon('trash')}Clear ${allTasks}</button>
-    </details>` : ''}`;
+    }).join('')}`;
 }
 
 // ---------- Circles of Excellence ----------
@@ -339,12 +327,12 @@ function viewLog() {
   const empty = !S.events.length && !S.tasks.length && !S.coe.length;
   const importPanel = `<details class="panel" ${empty ? 'open' : ''}>
       <summary>Setup: load starter data</summary>
-      <p>For whoever sets the site up. Adds the researched calendar and the Circles of Excellence checklist from a <code>seed.json</code> file (not to-dos; officers add those). It only adds items that aren't here yet, so it never overwrites anyone's changes.</p>
+      <p>For whoever sets the site up. Adds the researched calendar and the Circles of Excellence checklist from a <code>seed.json</code> file (not to-dos; add those in the app). It only adds items that aren't here yet, so it never overwrites anyone's changes.</p>
       <input type="file" accept="application/json,.json" data-act="import" aria-label="Choose seed.json">
     </details>`;
   const allTasks = S.tasks.length === 1 ? 'the 1 to-do' : `all ${S.tasks.length} to-dos`;
-  const clearPanel = S.officer && S.tasks.length ? `<details class="panel">
-      <summary>Officers: clear all to-dos</summary>
+  const clearPanel = S.tasks.length ? `<details class="panel">
+      <summary>Clear all to-dos</summary>
       <p>Deletes ${allTasks} on every team so the lists can start over. The calendar, the Circles of Excellence checklist and updates stay.</p>
       <button class="btn btn-danger" type="button" data-act="clear-tasks">${icon('trash')}Clear ${allTasks}</button>
     </details>` : '';

@@ -524,8 +524,8 @@ A navy panel with the score in 64px flip tiles, "of N" in Dim Letters, a 12px ro
 ### Team progress
 At the top right of each team page: a tiny "DONE" label over the done count in 30px flip tiles ("3/5"), with one small cell per item underneath, filled Court Green when done. On phones it sits under the heading, left-aligned.
 
-### Officer mode
-Only officers add, edit and delete to-dos. On a team page the filter (Everything · Mine · Unassigned) sits on the left of one row; officers see a green "+ Add to-do" button on the right of it (full width under the filter on phones) that opens the panel's New to-do form. Everyone else sees a muted line there instead: "Officers add to-dos. Officer sign-in", the last part an underlined Court Green link. Signed-in officers get a small navy "OFFICER" tag in Ball Yellow board letters inside the name button. The officer sign-in is a second floating-card dialog styled like the name dialog; the name dialog's last line, under a dashed rule, links to it (or to "Leave officer mode").
+### Adding to-dos
+Anyone can add, edit and delete to-dos. On a team page the filter (Everything · Mine · Unassigned) sits on the left of one row and a green "+ Add to-do" button on the right of it (full width under the filter on phones) opens the panel's New to-do form for that team. The "+ Add to-do" tab, between the team tabs and Log, is a page with the same form laid flat in a white panel (to-do; team, due and owner in one row of three that stacks on phones; description) and every team's open to-dos listed under it as ruled rows, each team heading linking to its tab. The team picked last stays picked for the next to-do.
 
 ### Toast
 A small navy bar at the bottom center with a check icon and a short message, sliding up into place. An "Undo" action shows in Ball Yellow, underlined. Errors use Clay Red.

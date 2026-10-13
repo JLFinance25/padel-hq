@@ -45,22 +45,13 @@ export function query(req) {
   return new URL(req.url, 'http://x').searchParams;
 }
 
-// ---------- Session (the class passcode, plus an officer passcode for the C-suite) ----------
+// ---------- Session (one class passcode) ----------
 
 function secret() {
   const pass = process.env.CLASS_PASSCODE;
   if (!pass) return null;
   // Changing the passcode (or SESSION_SECRET) logs everyone out, which is what we want.
   return crypto.createHash('sha256').update((process.env.SESSION_SECRET || '') + '|' + pass).digest();
-}
-
-// Officers sign in with OFFICER_PASSCODE. Officer mode lives in its own cookie, so changing that
-// passcode takes officer mode away from everyone without logging the whole class out.
-function officerSecret() {
-  const pass = process.env.OFFICER_PASSCODE;
-  const base = secret();
-  if (!pass || !base) return null;
-  return crypto.createHash('sha256').update(base).update('|officer|' + pass).digest();
 }
 
 function sign(key, payload) {
@@ -74,7 +65,6 @@ function matches(given, pass) {
   return crypto.timingSafeEqual(a, b);
 }
 export const passcodeMatches = (given) => matches(given, process.env.CLASS_PASSCODE);
-export const officerPasscodeMatches = (given) => matches(given, process.env.OFFICER_PASSCODE);
 
 function makeCookie(req, name, key) {
   const exp = Date.now() + SESSION_DAYS * 86400_000;
@@ -84,10 +74,8 @@ function makeCookie(req, name, key) {
   return `${name}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`;
 }
 export const sessionCookie = (req) => makeCookie(req, 'phq_session', secret());
-export const officerCookie = (req) => makeCookie(req, 'phq_officer', officerSecret());
 
 export const clearCookie = (name = 'phq_session') => `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
-export const clearOfficerCookie = () => clearCookie('phq_officer');
 
 function isHttps(req) {
   return (req.headers['x-forwarded-proto'] || '').includes('https');
@@ -110,7 +98,6 @@ function cookieValid(req, name, key) {
 }
 
 export const isLoggedIn = (req) => cookieValid(req, 'phq_session', secret());
-export const isOfficer = (req) => isLoggedIn(req) && cookieValid(req, 'phq_officer', officerSecret());
 
 // Returns true if the request may continue; otherwise it has already answered.
 export function requireLogin(req, res) {
@@ -302,7 +289,7 @@ export async function deleteItem(collection, id, who, title) {
   ]);
 }
 
-// Empties one whole list (officers use it to start the to-dos over). Returns how many were removed.
+// Empties one whole list (used to start the to-dos over). Returns how many were removed.
 export async function clearCollection(collection, who, word) {
   const what = (n) => `all ${word} (${n})`;
   if (usingFile()) {
@@ -329,7 +316,7 @@ export async function importItems(data, who) {
   const now = new Date().toISOString();
   const rows = [];
   for (const collection of COLLECTIONS) {
-    if (collection === 'tasks') continue; // to-dos come from officers in the app, never from the starter file
+    if (collection === 'tasks') continue; // to-dos are added in the app, never from the starter file
     const list = Array.isArray(data[collection]) ? data[collection] : [];
     for (const item of list) {
       if (checkItem(collection, item)) { counts.skipped++; continue; }
