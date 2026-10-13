@@ -231,7 +231,9 @@ function viewOfficers() {
   if (!S.officer) return `
     <div class="page-head"><div><h1>Officers</h1><p>This page is for the C-suite.</p></div></div>
     <p class="empty"><b>Officers only.</b><button class="linkish" type="button" data-act="officer-on">Sign in with the officer passcode</button></p>`;
-  const lastTeam = DEPTS.some((d) => d.id === S.officerTeam) ? S.officerTeam : 'firm';
+  const dr = S.officerDraft || {}; // a to-do whose save failed, typed back in
+  S.officerDraft = null;
+  const lastTeam = DEPTS.some((d) => d.id === (dr.dept || S.officerTeam)) ? dr.dept || S.officerTeam : 'firm';
   const open = S.tasks.filter((t) => !t.done);
   const unowned = open.filter((t) => !t.owner).length;
   const late = open.filter((t) => t.due && daysUntil(t.due) < 0).length;
@@ -245,14 +247,14 @@ function viewOfficers() {
     <section class="panel officer-add" aria-labelledby="ot-head">
       <h3 id="ot-head">Add a to-do</h3>
       <form class="form" data-form="officer-task" novalidate>
-        <label for="ot-title">To-do<input id="ot-title" type="text" name="title" required maxlength="160" autocomplete="off"></label>
+        <label for="ot-title">To-do<input id="ot-title" type="text" name="title" value="${esc(dr.title)}" required maxlength="160" autocomplete="off"></label>
         <div class="three">
           <label for="ot-dept">Team<select id="ot-dept" name="dept">${DEPTS.map((d) => `<option value="${d.id}" ${d.id === lastTeam ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
-          <label for="ot-due">Due<input id="ot-due" type="date" name="due" min="${DATE_MIN}" max="${DATE_MAX}"></label>
-          <label for="ot-owner">Who owns it<input id="ot-owner" type="text" name="owner" maxlength="400" list="ot-owners" autocomplete="off" placeholder="First names, comma between"></label>
+          <label for="ot-due">Due<input id="ot-due" type="date" name="due" value="${esc(dr.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
+          <label for="ot-owner">Who owns it<input id="ot-owner" type="text" name="owner" value="${esc(dr.owner)}" maxlength="400" list="ot-owners" autocomplete="off" placeholder="First names, comma between"></label>
         </div>
         <datalist id="ot-owners">${[...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean))].map((o) => `<option value="${esc(o)}">`).join('')}</datalist>
-        <label for="ot-desc">Description: what done looks like<textarea id="ot-desc" name="desc" maxlength="2000"></textarea></label>
+        <label for="ot-desc">Description: what done looks like<textarea id="ot-desc" name="desc" maxlength="2000">${esc(dr.desc)}</textarea></label>
         <div class="toolbar"><button class="btn btn-primary" type="submit">${icon('plus')}Add to-do</button></div>
       </form>
     </section>

@@ -137,8 +137,10 @@ async function addOfficerTask(form) {
     toast(`Added to ${dept(data.dept).name}`);
     $('#ot-title')?.focus();
   } catch {
-    const g = $('[data-form="officer-task"]')?.elements; // the save failed: put back what they typed
-    if (g) { g.title.value = title; g.dept.value = data.dept; g.due.value = data.due || ''; g.owner.value = data.owner; g.desc.value = data.desc; g.title.focus(); }
+    // The save failed: put back what they typed. If officer mode ran out, the form is gone for now,
+    // so it waits in S.officerDraft and comes back when they sign in as an officer again.
+    S.officerDraft = data;
+    if ($('[data-form="officer-task"]')) { render(); $('#ot-title')?.focus(); }
   }
 }
 
