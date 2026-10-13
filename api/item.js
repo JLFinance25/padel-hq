@@ -1,4 +1,4 @@
-import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, deleteItem, clearCollection, COLLECTIONS } from './_lib.js';
+import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, deleteItem, COLLECTIONS } from './_lib.js';
 
 export default async function handler(req, res) {
   try {
@@ -24,7 +24,6 @@ export default async function handler(req, res) {
       const q = query(req);
       const collection = q.get('collection');
       const id = q.get('id');
-      if (collection === 'tasks' && q.get('all') === '1') return send(res, 200, { cleared: await clearCollection('tasks', q.get('who'), 'to-dos') });
       if (!COLLECTIONS.includes(collection) || !id) return send(res, 400, { error: 'Bad request' });
       const before = await getItem(collection, id);
       if (!before) return send(res, 404, { error: 'Already deleted.' });

@@ -1,4 +1,4 @@
-// The other pages: Month timetable, team to-do lists, Circles of Excellence, and the Log.
+// The other pages: Month timetable, team to-do lists and the Add page.
 'use strict';
 
 // ---------- Shared ruled rows ----------
@@ -6,49 +6,25 @@
 function taskRowHtml(t) {
   const n = daysUntil(t.due);
   const cls = t.done ? '' : n !== null && n < 0 ? 'overdue' : n !== null && n <= 3 ? 'soon' : '';
-  const coe = t.coe && findItem('coe', t.coe);
-  const lit = isLit('tasks', t);
-  return `<li class="rrow${t.done ? ' is-done' : ''}${lit ? ' lit' : ''}">
+  return `<li class="rrow${t.done ? ' is-done' : ''}">
     <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="rrow-open" data-open="tasks:${esc(t.id)}">
-      <span class="r-title">${esc(t.title)}${lit ? `<span class="pill new">${litWord('tasks', t)}</span>` : ''}</span>
+      <span class="r-title">${esc(t.title)}</span>
       ${t.desc ? `<span class="r-desc">${esc(t.desc)}</span>` : ''}
     </button>
     <span class="r-side">
       ${t.due ? `<span class="due ${cls}">${boardDate(t.due)} · ${esc(relDays(n))}</span>` : ''}
       <span class="pill owner${t.owner ? '' : ' none'}">${esc(t.owner || 'Unassigned')}</span>
-      ${coe ? `<span class="pill coe" title="Counts toward Circles of Excellence">Circles +${esc(coe.points)}</span>` : ''}
     </span>
   </li>`;
 }
-
-// A Circles of Excellence item shown in a team list: same row as a to-do, tagged with its points.
-function coeRowHtml(c) {
-  const n = daysUntil(c.due);
-  const cls = c.done ? '' : n !== null && n < 0 ? 'overdue' : n !== null && n <= 3 ? 'soon' : '';
-  const lit = isLit('coe', c);
-  return `<li class="rrow${c.done ? ' is-done' : ''}${lit ? ' lit' : ''}">
-    <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
-    <button class="rrow-open" data-open="coe:${esc(c.id)}">
-      <span class="r-title">${esc(c.title)}${lit ? `<span class="pill new">${litWord('coe', c)}</span>` : ''}</span>
-      ${c.desc ? `<span class="r-desc">${esc(c.desc)}</span>` : ''}
-    </button>
-    <span class="r-side">
-      ${c.due ? `<span class="due ${cls}">${boardDate(c.due)} · ${esc(relDays(n))}</span>` : ''}
-      <span class="pill coe" title="A Circles of Excellence item. Checking it here checks it on the Circles tab too.">Circles +${esc(c.points)}</span>
-    </span>
-  </li>`;
-}
-const isCoe = (x) => x.period !== undefined;
-const teamRowHtml = (x) => (isCoe(x) ? coeRowHtml(x) : taskRowHtml(x));
 
 function eventRowHtml(e) {
-  const lit = isLit('events', e);
   const st = e.status || (e.date ? 'internal' : 'nodate');
-  return `<li class="rrow no-tick${lit ? ' lit' : ''}">
+  return `<li class="rrow no-tick">
     <span class="kdot kd-${esc(e.kind)} r-dot" aria-hidden="true"></span>
     <button class="rrow-open" data-open="events:${esc(e.id)}">
-      <span class="r-title">${esc(e.title)}${lit ? `<span class="pill new">${litWord('events', e)}</span>` : ''}</span>
+      <span class="r-title">${esc(e.title)}</span>
       <span class="r-desc">${esc(KINDS[e.kind] || e.kind || 'Event')} · ${esc(dept(e.dept).name)}</span>
     </button>
     <span class="r-side"><span class="pill s-${esc(st)}">${esc(STATUSES[st] || st)}</span></span>
@@ -72,7 +48,7 @@ function monthChip(r, k, dow) {
   // How many days the band runs from here to the end of this week, so its title can use that whole width.
   let span = 1;
   if (multi && showText) { const left = Math.round((parseDay(r.end) - parseDay(k)) / 86400000); span = Math.min(left, 6 - dow) + 1; }
-  const cls = `chip-ev${r.c === 'tasks' ? ' task' : ''}${r.it.done ? ' done' : ''}${isLit(r.c, r.it) ? ' lit' : ''}${multi ? ' band' : ''}${multi && !starts && dow !== 0 ? ' cont-l' : ''}${multi && !ends && dow !== 6 ? ' cont-r' : ''}`;
+  const cls = `chip-ev${r.c === 'tasks' ? ' task' : ''}${r.it.done ? ' done' : ''}${multi ? ' band' : ''}${multi && !starts && dow !== 0 ? ' cont-l' : ''}${multi && !ends && dow !== 6 ? ' cont-r' : ''}`;
   return `<button class="${cls}" data-open="${r.c}:${esc(r.it.id)}" title="${esc(r.it.title)}" ${showText ? '' : 'aria-hidden="true" tabindex="-1"'} ${span > 1 ? `style="--span:${span}"` : ''}>${showText ? `<span class="kdot kd-${esc(r.kind)}"></span><span class="chip-text">${esc(r.it.title)}</span>` : '&nbsp;'}</button>`;
 }
 
@@ -182,24 +158,17 @@ function byDue(a, b) { return (a.due || '9999').localeCompare(b.due || '9999') |
 
 function viewTeam(id) {
   const d = dept(id);
-  const circles = looseCoe(id);
-  const all = [...S.tasks.filter((t) => t.dept === id), ...circles];
+  const all = S.tasks.filter((t) => t.dept === id);
   const done = all.filter((t) => t.done);
-  let list = all;
-  if (S.taskFilter === 'mine') list = list.filter((t) => !isCoe(t) && ownerMatches(t.owner, S.me));
-  if (S.taskFilter === 'unassigned') list = list.filter((t) => !isCoe(t) && !t.owner);
-  const open = list.filter((t) => !t.done).sort(byDue);
+  const open = all.filter((t) => !t.done).sort(byDue);
   const groups = [
     { title: 'Overdue', cls: 'red', items: open.filter((t) => t.due && daysUntil(t.due) < 0) },
     { title: 'Next 2 weeks', items: open.filter((t) => t.due && daysUntil(t.due) >= 0 && daysUntil(t.due) <= 14) },
     { title: 'Later', items: open.filter((t) => t.due && daysUntil(t.due) > 14) },
     { title: 'No date yet', items: open.filter((t) => !t.due) },
   ];
-  const doneList = list.filter((t) => t.done).sort(byDue);
-  const seg = (v, label) => `<button data-act="tf" data-v="${v}" aria-pressed="${S.taskFilter === v}">${label}</button>`;
-  const emptyMsg = all.length === 0 ? '<b>No to-dos here yet.</b>Tap “Add to-do” to add the first one.'
-    : S.taskFilter === 'mine' ? (S.me ? `<b>Nothing here is assigned to ${esc(S.me)}.</b>Open a to-do and put your name in “Who owns it”.` : '<b>Set your name first.</b>Tap the name button at the top right.')
-    : S.taskFilter === 'unassigned' ? '<b>Everything here has an owner.</b>' : '<b>All done.</b>Every to-do here is checked off.';
+  const doneList = [...done].sort(byDue);
+  const emptyMsg = all.length === 0 ? '<b>No to-dos here yet.</b>Tap “Add to-do” to add the first one.' : '<b>All done.</b>Every to-do here is checked off.';
 
   return `
     <div class="page-head">
@@ -209,18 +178,14 @@ function viewTeam(id) {
         <span class="stat-num">${flap('team-' + id, `${done.length}/${all.length}`)}</span>
         <div class="cells" role="img" aria-label="${done.length} of ${all.length} done">${all.map((t) => `<i class="${t.done ? 'on' : ''}"></i>`).join('')}</div></div>
     </div>
-    <div class="team-tools">
-      <div class="seg" role="group" aria-label="Filter">${seg('all', 'Everything')}${seg('mine', 'Mine')}${seg('unassigned', 'Unassigned')}</div>
-      <button class="btn btn-primary" data-act="new-task">${icon('plus')}Add to-do</button>
-    </div>
-    ${circles.length && S.taskFilter === 'all' ? `<p class="hint" style="font-size:13px;margin:10px 0 0">Includes ${circles.length} Circles of Excellence item${circles.length === 1 ? '' : 's'} for this team, tagged “Circles”. Checking one here checks it on the Circles tab too.</p>` : ''}
+    <div class="team-tools"><span></span><button class="btn btn-primary" data-act="new-task">${icon('plus')}Add to-do</button></div>
     ${open.length === 0 ? `<p class="empty" style="margin-top:16px">${emptyMsg}</p>` : ''}
     ${groups.filter((g) => g.items.length).map((g) => `
       <h2 class="group-title ${g.cls || ''}">${g.title} · ${g.items.length}</h2>
-      <ul class="ruled">${g.items.map(teamRowHtml).join('')}</ul>`).join('')}
+      <ul class="ruled">${g.items.map(taskRowHtml).join('')}</ul>`).join('')}
     ${doneList.length ? `
       <h2 class="group-title">Done · ${doneList.length} <button class="btn btn-ghost btn-sm" data-act="toggle-done" aria-expanded="${S.showDone}">${S.showDone ? 'Hide' : 'Show'}</button></h2>
-      ${S.showDone ? `<ul class="ruled">${doneList.map(teamRowHtml).join('')}</ul>` : ''}` : ''}`;
+      ${S.showDone ? `<ul class="ruled">${doneList.map(taskRowHtml).join('')}</ul>` : ''}` : ''}`;
 }
 
 // ---------- Add: add a to-do for any team, and see every team's open to-dos in one place ----------
@@ -257,109 +222,4 @@ function viewAdd() {
       return `<h2 class="group-title"><a href="#${d.id}">${esc(d.name)}</a> · ${list.length} open${done ? `, ${done} done` : ''}</h2>
         ${list.length ? `<ul class="ruled">${list.map(taskRowHtml).join('')}</ul>` : '<p class="hint" style="font-size:14px;margin:0">No open to-dos.</p>'}`;
     }).join('')}`;
-}
-
-// ---------- Circles of Excellence ----------
-
-function coeScore() {
-  const standard = S.coe.filter((c) => !c.bonus && c.done).reduce((s, c) => s + (Number(c.points) || 0), 0);
-  const cap = (p) => Math.min(2, S.coe.filter((c) => c.bonus && c.period === p && c.done).reduce((s, c) => s + (Number(c.points) || 0), 0));
-  return { standard, bonus: cap('fall-bonus') + cap('spring-bonus') };
-}
-
-function viewCoe() {
-  const { standard, bonus } = coeScore();
-  const pct = Math.round((standard / COE_TOTAL) * 100);
-  const goldAt = Math.ceil(0.9 * COE_TOTAL);
-  const next = TIERS.find((t) => pct < t.pct);
-  const need = next ? Math.ceil((next.pct / 100) * COE_TOTAL) - standard : 0;
-  const toGold = Math.max(0, goldAt - standard);
-  const msg = !next ? 'Gold. Keep every box checked through May.'
-    : next.id === 'gold' ? `${toGold} more point${toGold === 1 ? '' : 's'} to Gold`
-    : `${toGold} points to Gold · ${need} to ${next.name}`;
-  const tiers = TIERS.map((t) => `<span class="tier ${t.id}" style="left:${t.pct}%">${t.name}<small>${Math.ceil((t.pct / 100) * COE_TOTAL)}</small></span>`).join('');
-
-  return `
-    <div class="page-head">
-      <div><h1>Circles of Excellence</h1><p>VE's point checklist for the year. Gold means finishing 90% or more. Our goal: every point, every period.</p></div>
-      <a class="btn btn-sm" href="https://veinternational.org/circles-of-excellence/" target="_blank" rel="noopener noreferrer">VE's official page ${icon('out')}</a>
-    </div>
-    <section class="coe-hero" aria-label="Our score: ${standard} of ${COE_TOTAL} points">
-      <div class="score">${flap('coe-score', String(standard).padStart(2, '0'))}<span class="score-of">of ${COE_TOTAL}<br>points</span></div>
-      <div>
-        <div class="coe-track"><div class="coe-fill" style="transform:scaleX(${Math.min(100, pct) / 100})"></div>${tiers}</div>
-        <p class="tier-key">Bronze 36 · Silver 48 · Gold 54</p>
-        <p class="coe-msg">${esc(msg)}</p>
-        <p class="coe-note">Bonus points: ${bonus} of 4. Check an item off when it is submitted or finished, not when it is started.</p>
-        <details class="coe-more" ${S.coeMore ? 'open' : ''}><summary>How the score is counted</summary><p>The bar uses the 60 regular points, because whether VE counts bonus points toward the percentage is unverified. Heads up: VE's page says the year totals 60, but its listed items add up to 61 (Period 5 is labeled 16 and its items add to 17). Our teacher should confirm which is right.</p></details>
-      </div>
-    </section>
-    ${S.coe.length === 0 ? '<p class="empty"><b>The checklist is empty.</b>Load the starter data from the Log tab.</p>' : ''}
-    ${PERIODS.map((p) => {
-      const items = S.coe.filter((c) => String(c.period) === String(p.id)).sort(byDue);
-      if (!items.length) return '';
-      const raw = items.filter((c) => c.done).reduce((s, c) => s + (Number(c.points) || 0), 0);
-      const got = p.bonus ? Math.min(2, raw) : raw;
-      const max = items.reduce((s, c) => s + (Number(c.points) || 0), 0);
-      const left = daysUntil(p.ends);
-      const missed = left < 0 && got < max && !p.bonus;
-      return `<section class="period${missed ? ' missed' : ''}">
-        <div class="period-head"><h3>${p.name} · ${p.span}</h3>
-          <span><b>${got}</b> / ${p.bonus ? '2 max' : max} pts · ${left < 0 ? 'Closed' : 'Closes ' + boardDate(p.ends) + ' · ' + relDays(left)}</span></div>
-        <ul class="ruled">${items.map((c) => {
-          const lit = isLit('coe', c);
-          return `<li class="rrow${c.done ? ' is-done' : ''}${lit ? ' lit' : ''}">
-            <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
-            <button class="rrow-open" data-open="coe:${esc(c.id)}">
-              <span class="r-title">${esc(c.title)}${lit ? `<span class="pill new">${litWord('coe', c)}</span>` : ''}</span>
-              <span class="r-desc">${esc(dept(c.dept).name)}${c.due && !p.bonus ? ' · due ' + esc(fmt(c.due, { month: 'short', day: 'numeric' })) : ''}</span>
-            </button>
-            <span class="r-side"><span class="pts">${Number(c.points) ? '+' + esc(c.points) : '0 pts'}</span></span>
-          </li>`;
-        }).join('')}</ul>
-      </section>`;
-    }).join('')}`;
-}
-
-// ---------- Log ----------
-
-function viewLog() {
-  const empty = !S.events.length && !S.tasks.length && !S.coe.length;
-  const importPanel = `<details class="panel" ${empty ? 'open' : ''}>
-      <summary>Setup: load starter data</summary>
-      <p>For whoever sets the site up. Adds the researched calendar and the Circles of Excellence checklist from a <code>seed.json</code> file (not to-dos; add those in the app). It only adds items that aren't here yet, so it never overwrites anyone's changes.</p>
-      <input type="file" accept="application/json,.json" data-act="import" aria-label="Choose seed.json">
-    </details>`;
-  const allTasks = S.tasks.length === 1 ? 'the 1 to-do' : `all ${S.tasks.length} to-dos`;
-  const clearPanel = S.tasks.length ? `<details class="panel">
-      <summary>Clear all to-dos</summary>
-      <p>Deletes ${allTasks} on every team so the lists can start over. The calendar, the Circles of Excellence checklist and updates stay.</p>
-      <button class="btn btn-danger" type="button" data-act="clear-tasks">${icon('trash')}Clear ${allTasks}</button>
-    </details>` : '';
-  const lines = logLines(100);
-  return `
-    <div class="page-head"><div><h1>Log</h1><p>Every change anyone makes, newest first. The last 100 show here.</p></div></div>
-    ${empty ? importPanel : ''}
-    ${lines.length ? `<ul class="ruled">${lines.map((l) => {
-      const target = logTarget(l);
-      const { action, what } = logWords(l);
-      const text = `<span><b>${esc(l.who)}</b> ${esc(action)} ${what}</span>`;
-      return `<li class="rrow no-tick">
-        ${target ? `<button class="rrow-open" data-open="${target.c}:${esc(target.it.id)}">${text}</button>` : text}
-        <span class="r-side"><time class="log-when" datetime="${esc(l.t)}">${esc(ago(l.t))}</time></span>
-      </li>`;
-    }).join('')}</ul>` : '<p class="empty"><b>No changes yet.</b>Everything anyone adds, edits or checks off will show here.</p>'}
-    ${empty ? '' : importPanel}
-    ${clearPanel}`;
-}
-
-async function importFile(file) {
-  try {
-    const data = JSON.parse(await file.text());
-    const r = await api('/api/import', { method: 'POST', body: JSON.stringify({ data, who: S.me }) });
-    toast(`Added ${r.added} items${r.skipped ? `, skipped ${r.skipped} already here` : ''}`);
-    await refresh();
-  } catch (e) {
-    toast('Import failed: ' + e.message, true);
-  }
 }

@@ -289,64 +289,6 @@ export async function deleteItem(collection, id, who, title) {
   ]);
 }
 
-// Empties one whole list (used to start the to-dos over). Returns how many were removed.
-export async function clearCollection(collection, who, word) {
-  const what = (n) => `all ${word} (${n})`;
-  if (usingFile()) {
-    const db = fileLoad();
-    const n = Object.keys(db[collection] || {}).length;
-    db[collection] = {};
-    db.log.unshift(logEntry(who, 'cleared', 'all', what(n)));
-    db.log = db.log.slice(0, LOG_KEEP);
-    fileSave(db);
-    return n;
-  }
-  const [n] = await redis([['HLEN', PREFIX + collection]]);
-  await redis([
-    ['DEL', PREFIX + collection],
-    ['LPUSH', LOG_KEY, JSON.stringify(logEntry(who, 'cleared', 'all', what(n)))],
-    ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
-  ]);
-  return Number(n) || 0;
-}
-
-// Adds only items whose id is not already there, so importing twice never overwrites anyone's edits.
-export async function importItems(data, who) {
-  const counts = { added: 0, skipped: 0 };
-  const now = new Date().toISOString();
-  const rows = [];
-  for (const collection of COLLECTIONS) {
-    if (collection === 'tasks') continue; // to-dos are added in the app, never from the starter file
-    const list = Array.isArray(data[collection]) ? data[collection] : [];
-    for (const item of list) {
-      if (checkItem(collection, item)) { counts.skipped++; continue; }
-      // importedAt lets the board tell starter data apart from real edits, so an import doesn't light every row as new.
-      rows.push([collection, { ...item, updatedAt: now, importedAt: now, updatedBy: cleanWho(who) }]);
-    }
-  }
-  if (usingFile()) {
-    const db = fileLoad();
-    for (const [c, item] of rows) {
-      db[c] ||= {};
-      if (Object.hasOwn(db[c], item.id)) counts.skipped++;
-      else { db[c][item.id] = item; counts.added++; }
-    }
-    db.log.unshift(logEntry(who, `imported ${counts.added} items into`, 'all', 'the starter data'));
-    fileSave(db);
-    return counts;
-  }
-  for (let i = 0; i < rows.length; i += 200) {
-    const batch = rows.slice(i, i + 200);
-    const results = await redis(batch.map(([c, item]) => ['HSETNX', PREFIX + c, item.id, JSON.stringify(item)]));
-    for (const r of results) r === 1 ? counts.added++ : counts.skipped++;
-  }
-  await redis([
-    ['LPUSH', LOG_KEY, JSON.stringify(logEntry(who, `imported ${counts.added} items into`, 'all', 'the starter data'))],
-    ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
-  ]);
-  return counts;
-}
-
 // Login throttle: every attempt counts first (so parallel guesses can't slip through),
 // more than 20 tries from one address in 10 minutes waits, and a correct passcode clears the count.
 const memTries = new Map();

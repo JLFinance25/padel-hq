@@ -1,4 +1,4 @@
-// Padel HQ core: fixed lists, shared state, helpers, the server, flip letters and "what's new" tracking.
+// Padel HQ core: fixed lists, shared state, helpers, the server and flip letters.
 // Plain JavaScript, loaded in order: core, board, views, drawer, main.
 'use strict';
 
@@ -14,7 +14,6 @@ const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted
 
 const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone', dayoff: 'No school' };
 const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From our teacher', internal: 'Our target', nodate: 'No date yet' };
-const BOARD_STATUS = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From teacher', internal: 'Our target', nodate: 'No date' };
 const STATUS_HELP = {
   confirmed: 'An official 2026–27 calendar lists this date (VE or the school district; see Source).',
   projected: "Guessed from last season's date. Confirm with our teacher before relying on it.",
@@ -22,29 +21,17 @@ const STATUS_HELP = {
   internal: 'A target our firm set for itself. It can move.',
   nodate: 'No date found anywhere yet.',
 };
-const PERIODS = [
-  { id: 1, name: 'Period 1', short: 'P1', span: 'Aug to Oct 2026', starts: '2026-08-01', ends: '2026-10-31' },
-  { id: 2, name: 'Period 2', short: 'P2', span: 'Nov 2026', starts: '2026-11-01', ends: '2026-11-30' },
-  { id: 3, name: 'Period 3', short: 'P3', span: 'Dec 2026', starts: '2026-12-01', ends: '2026-12-31' },
-  { id: 4, name: 'Period 4', short: 'P4', span: 'Jan to Feb 2027', starts: '2027-01-01', ends: '2027-02-28' },
-  { id: 5, name: 'Period 5', short: 'P5', span: 'Mar to Apr 2027', starts: '2027-03-01', ends: '2027-04-30' },
-  { id: 6, name: 'Period 6', short: 'P6', span: 'May 2027', starts: '2027-05-01', ends: '2027-05-31' },
-  { id: 'fall-bonus', name: 'Fall bonus', span: 'Aug 1 to Jan 31, up to 2 points', ends: '2027-01-31', bonus: true },
-  { id: 'spring-bonus', name: 'Spring bonus', span: 'Feb 1 to May 31, up to 2 points', ends: '2027-05-31', bonus: true },
-];
-const COE_TOTAL = 60;
-const TIERS = [{ id: 'bronze', name: 'Bronze', pct: 60 }, { id: 'silver', name: 'Silver', pct: 80 }, { id: 'gold', name: 'Gold', pct: 90 }];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const DATE_MIN = '2026-01-01', DATE_MAX = '2027-12-31';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isPhone = () => window.innerWidth <= 680;
 
 const S = {
-  events: [], tasks: [], coe: [], posts: [], log: [],
+  events: [], tasks: [],
   view: 'board', loaded: false,
-  boardFilter: 'dates', boardTeam: 'all', boardFull: false, showLate: false, olderPosts: false,
+  boardFull: false, showLate: false,
   month: startOfMonth(new Date()), sel: null, slide: '', monthTeam: 'all', monthTasks: false,
-  taskFilter: 'all', showDone: false,
+  showDone: false,
   addTeam: store('phq_add_team') || 'firm', // the Add page remembers the last team you added a to-do for
   me: store('phq_me') || '',
 };
@@ -133,59 +120,6 @@ function flap(key, text, delay = 0) {
   return `<span class="flaps${go ? ' go' : ''}" aria-hidden="true">${tiles}</span><span class="sr">${esc(text)}</span>`;
 }
 
-// ---------- What's new for me ----------
-// "since" = when this browser first opened the app. "seen" = which version of each item I've opened.
-const NOW_ISO = new Date().toISOString();
-const SINCE = store('phq_since') || store('phq_since', NOW_ISO) || NOW_ISO;
-let PREV_VISIT = store('phq_lastvisit') || SINCE;
-let seen = {};
-try { seen = JSON.parse(store('phq_seen') || '{}'); } catch { seen = {}; }
-
-function isLit(collection, item) {
-  if (!item || !item.updatedAt || item.updatedAt <= SINCE) return false;
-  if (item.importedAt && item.updatedAt === item.importedAt) return false;
-  if (sameName(item.updatedBy, S.me)) return false;
-  return seen[collection + ':' + item.id] !== item.updatedAt;
-}
-function litWord(collection, item) {
-  const neverOpened = !Object.hasOwn(seen, collection + ':' + item.id);
-  return neverOpened && item.createdAt && item.createdAt > SINCE ? 'New' : 'Updated';
-}
-function markSeen(collection, item) {
-  if (!item) return;
-  seen[collection + ':' + item.id] = item.updatedAt;
-  store('phq_seen', JSON.stringify(seen));
-}
-function litItems() {
-  const out = [];
-  for (const c of ['events', 'tasks', 'coe']) for (const it of S[c]) if (isLit(c, it)) out.push([c, it]);
-  return out;
-}
-function markAllSeen() {
-  for (const [c, it] of litItems()) seen[c + ':' + it.id] = it.updatedAt;
-  store('phq_seen', JSON.stringify(seen));
-  PREV_VISIT = new Date().toISOString();
-  store('phq_lastvisit', PREV_VISIT);
-}
-
-// ---------- Log wording ----------
-// Starter-data imports read as one line, and empty re-imports are hidden.
-function logLines(limit) {
-  return S.log.filter((l) => !/^imported 0 /.test(l.action)).slice(0, limit);
-}
-function logWords(l) {
-  const m = /^imported (\d+) items/.exec(l.action);
-  if (m) return { action: `loaded the starter data (${m[1]} items)`, what: '' };
-  return { action: l.action, what: l.collection === 'all' ? esc(l.title) : `“${esc(l.title)}”` };
-}
-// Where a log line should open, if anywhere. Posts and deleted things have no panel.
-function logTarget(l) {
-  if (l.collection === 'all' || l.collection === 'posts' || l.action === 'deleted') return null;
-  const it = l.id ? findItem(l.collection, l.id) : (S[l.collection] || []).find((x) => x.title === l.title);
-  return it ? { c: l.collection, it } : null;
-}
-const freshLog = () => logLines(100).filter((l) => l.t > PREV_VISIT && !sameName(l.who, S.me));
-
 // ---------- Server ----------
 
 async function api(path, opts = {}) {
@@ -205,7 +139,7 @@ async function refresh(quiet) {
     if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
     const first = !S.loaded;
-    S.events = data.events || []; S.tasks = data.tasks || []; S.coe = data.coe || []; S.posts = data.posts || []; S.log = data.log || [];
+    S.events = data.events || []; S.tasks = data.tasks || [];
     S.loaded = true; S.loadError = null;
     if (!drawerIsEditing()) { renderTabs(); render(); if (drawerState) syncDrawer(); }
     if (first) enterMain();
@@ -228,8 +162,6 @@ async function createItem(collection, item) {
   try {
     const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item, who: S.me }) });
     putLocal(collection, saved);
-    markSeen(collection, saved);
-    refreshLogSoon();
     return saved;
   } catch (e) {
     S[collection] = S[collection].filter((x) => x.id !== item.id);
@@ -249,8 +181,6 @@ async function updateItem(collection, id, fields) {
   try {
     const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item: { id, ...fields }, patch: true, who: S.me }) });
     putLocal(collection, saved);
-    markSeen(collection, saved);
-    refreshLogSoon();
     return saved;
   } catch (e) {
     if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
@@ -260,58 +190,29 @@ async function updateItem(collection, id, fields) {
   }
 }
 
-// A to-do linked to a Circles item moves with it: the Circles item is done when every to-do linked to it is,
-// and checking the Circles item itself checks its linked to-dos.
-async function setDone(collection, id, done) {
-  const saved = await updateItem(collection, id, { done });
-  const sync = [];
-  if (collection === 'tasks' && saved.coe) {
-    const c = findItem('coe', saved.coe);
-    const all = S.tasks.filter((t) => t.coe === saved.coe).every((t) => t.done);
-    if (c && !!c.done !== all) sync.push(['coe', c.id, all]);
-  } else if (collection === 'coe') {
-    for (const t of S.tasks) if (t.coe === id && !!t.done !== done) sync.push(['tasks', t.id, done]);
-  }
-  for (const [c, i, d] of sync) await updateItem(c, i, { done: d }).catch(() => {}); // a failure already showed its own message
-  return saved;
-}
-
 // Check off or un-check, with an Undo button in the message.
 async function toggleDone(collection, id) {
   const item = findItem(collection, id);
   if (!item) return null;
-  const saved = await setDone(collection, id, !item.done);
-  const coe = collection === 'tasks' && saved.coe && findItem('coe', saved.coe);
-  const msg = saved.done ? (coe && coe.done ? `Checked off. Circles +${coe.points} counted.` : 'Checked off') : 'Marked not done';
-  toast(msg, false, {
+  const saved = await updateItem(collection, id, { done: !item.done });
+  toast(saved.done ? 'Checked off' : 'Marked not done', false, {
     label: 'Undo',
-    run: () => setDone(collection, id, !saved.done).then(() => toast('Undone')).catch(() => {}),
+    run: () => updateItem(collection, id, { done: !saved.done }).then(() => toast('Undone')).catch(() => {}),
   });
   return saved;
 }
 
-async function removeItem(collection, item, word = 'Delete') {
-  if (!confirm(`${word} "${item.title}" for everyone? This can't be undone.`)) return false;
+async function removeItem(collection, item) {
+  if (!confirm(`Delete "${item.title}" for everyone? This can't be undone.`)) return false;
   try {
     await api(`/api/item?collection=${collection}&id=${encodeURIComponent(item.id)}&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
   } catch (e) {
-    if (e.status !== 404) { toast(`Didn't ${word.toLowerCase()}: ` + e.message, true); return false; }
+    if (e.status !== 404) { toast("Didn't delete: " + e.message, true); return false; }
   }
   S[collection] = S[collection].filter((x) => x.id !== item.id);
   renderTabs(); render();
-  toast(word === 'Delete' ? 'Deleted' : 'Removed');
-  refreshLogSoon();
+  toast('Deleted');
   return true;
-}
-
-// The log updates on the server; pull it shortly after a change so the Updates feed shows it.
-function refreshLogSoon() { clearTimeout(refreshLogSoon.t); refreshLogSoon.t = setTimeout(() => refresh(true), 700); }
-
-// Circles of Excellence items no to-do already covers. They show in their team's list and on the board's To-dos view,
-// so money jobs like payroll and taxes are visible where teams look, as one item with one checkbox.
-function looseCoe(dept) {
-  const covered = new Set(S.tasks.map((t) => t.coe).filter(Boolean));
-  return S.coe.filter((c) => !covered.has(c.id) && (!dept || c.dept === dept));
 }
 
 function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }

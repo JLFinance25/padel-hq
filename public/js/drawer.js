@@ -10,7 +10,6 @@ function openDrawer(collection, id, editing = false, defaults = {}) {
   if (id && !item) { toast('That item was removed.', true); return; }
   if (!drawerState) openerKey = focusKey(document.activeElement);
   drawerState = { collection, id: item ? item.id : null, editing: editing || !item, defaults, saving: false };
-  if (item) markSeen(collection, item);
   paintDrawer();
   $('#scrim').hidden = false;
   $('#drawer').hidden = false;
@@ -52,17 +51,11 @@ function fieldsFor(collection) {
     { k: 'desc', label: 'Description', type: 'textarea' },
     { k: 'source', label: 'Source (link or where it came from)', type: 'text' },
   ];
-  if (collection === 'tasks') return [
+  return [
     { k: 'title', label: 'To-do', type: 'text' },
     { k: 'desc', label: 'Description: what done looks like', type: 'textarea' },
     { k: 'due', label: 'Due', type: 'date', half: true }, { k: 'owner', label: 'Who owns it (first names, comma between)', type: 'text', half: true },
     { k: 'dept', label: 'Team', type: 'select', options: teams },
-  ];
-  return [
-    { k: 'title', label: 'Checklist item', type: 'text' },
-    { k: 'due', label: 'Due', type: 'date', half: true }, { k: 'dept', label: 'Team', type: 'select', options: teams, half: true },
-    { k: 'desc', label: 'What it takes to earn the point', type: 'textarea' },
-    { k: 'notes', label: 'Our notes (proof, links, who submitted)', type: 'textarea' },
   ];
 }
 
@@ -84,7 +77,7 @@ function paintDrawer() {
   const item = currentItem();
   const d = $('#drawer');
   d.classList.toggle('editing', editing);
-  const word = collection === 'events' ? 'calendar item' : collection === 'tasks' ? 'to-do' : 'checklist item';
+  const word = collection === 'events' ? 'calendar item' : 'to-do';
 
   if (editing) {
     if (item && !drawerState.snap) drawerState.snap = { ...item };
@@ -108,7 +101,7 @@ function paintDrawer() {
         <button class="icon-btn" data-act="close" aria-label="Close">${icon('x')}</button></div>
       <form class="drawer-body form" id="edit-form" novalidate>${rows}<datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join('')}</datalist></form>
       <div class="drawer-foot">
-        ${item && collection !== 'coe' ? `<button class="btn btn-danger" type="button" data-act="delete">${icon('trash')}Delete</button>` : '<span></span>'}
+        ${item ? `<button class="btn btn-danger" type="button" data-act="delete">${icon('trash')}Delete</button>` : '<span></span>'}
         <span class="toolbar"><button class="btn" type="button" data-act="${item ? 'cancel-edit' : 'close'}">Cancel</button><button class="btn btn-primary" type="submit" form="edit-form" data-act="save">Save</button></span>
       </div>`;
     drawerState.initial = formState();
@@ -130,11 +123,8 @@ function paintDrawer() {
     const inCls = item.done ? 'green' : n !== null && n < 0 ? 'red' : n !== null && n <= 3 ? 'amber' : '';
     segs = seg4('Due', esc(item.due ? boardDate(item.due) : 'No date')) + seg4(item.done ? 'Status' : 'In', item.done ? 'Done' : item.due ? esc(n < 0 ? -n + (n === -1 ? ' day late' : ' days late') : n === 0 ? 'Today' : n + (n === 1 ? ' day' : ' days')) : '—', inCls)
       + seg4('Team', esc(team.name))
-      + (collection === 'tasks' ? seg4('Owner', esc(item.owner || 'Nobody yet'), item.owner ? '' : 'amber') : seg4('Points', esc(item.points) + (item.bonus ? ' bonus' : '')))
-      + seg4('What', collection === 'tasks' ? 'To-do' : 'Circles item');
+      + seg4('Owner', esc(item.owner || 'Nobody yet'), item.owner ? '' : 'amber');
   }
-  const linked = collection === 'coe' ? S.tasks.filter((t) => t.coe === item.id) : [];
-  const coeLink = collection === 'tasks' && item.coe && findItem('coe', item.coe);
 
   d.innerHTML = `
     <div class="drawer-head">
@@ -145,9 +135,6 @@ function paintDrawer() {
       <div class="segs">${segs}</div>
       ${collection === 'events' ? `<p class="status-help">${esc(STATUS_HELP[item.status || (item.date ? 'internal' : 'nodate')] || '')}</p>` : ''}
       <p class="desc">${esc(item.desc || 'No description yet. Tap Edit to add one.')}</p>
-      ${item.notes ? `<p class="meta"><b>Our notes</b></p><p class="desc">${esc(item.notes)}</p>` : ''}
-      ${coeLink ? `<p class="meta">Counts toward Circles of Excellence: <a href="#" data-open="coe:${esc(coeLink.id)}">${esc(coeLink.title)}</a> (+${esc(coeLink.points)})</p>` : ''}
-      ${linked.length ? `<p class="meta">Linked to-dos: ${linked.map((t) => `<a href="#" data-open="tasks:${esc(t.id)}">${esc(t.title)}</a>${t.done ? ' (done)' : ''}`).join(', ')}</p>` : ''}
       ${item.source ? `<p class="meta">Source: ${safeLink(item.source)}</p>` : ''}
       ${item.updatedBy ? `<p class="meta">Last changed by ${esc(item.updatedBy)}, ${esc(ago(item.updatedAt))}</p>` : ''}
     </div>
@@ -198,7 +185,7 @@ async function saveDrawer() {
       for (const [k, v] of Object.entries(data)) if (norm(was[k]) !== norm(v)) changed[k] = v;
       saved = Object.keys(changed).length ? await updateItem(collection, item.id, changed) : item;
     } else {
-      saved = await createItem(collection, { id: newId(data.title), done: false, createdAt: new Date().toISOString(), ...(collection === 'tasks' ? { coe: null, source: '' } : {}), ...data });
+      saved = await createItem(collection, { id: newId(data.title), done: false, createdAt: new Date().toISOString(), ...data });
     }
     toast(item ? 'Saved' : 'Added');
     if (drawerState === state) { // still the same panel (not closed meanwhile)

@@ -24,7 +24,6 @@ Built around how this firm is actually split up and how VE actually scores firms
 - VE's year runs in six Circles of Excellence periods (Aug–Oct, Nov, Dec, Jan–Feb, Mar–Apr, May) plus fall and spring bonus windows.
 - Big moments: the national online competitions, the regional trade show and business plan competition, and the Youth Business Summit in April.
 - Anyone with the class passcode can view and edit everything, to-dos included. Changes are logged by the first name each person types in.
-- Updates: anyone can post a short announcement (pinned on top), and an automatic feed shows what was just added, changed or checked off.
 
 ## Capabilities and Constraints
 
@@ -39,11 +38,11 @@ The firm sells padel: a beginner set for four players. The site should go with t
 
 ## Evidence on Hand
 
-Real season data (researched VE dates with sources, team to-dos, the full Circles of Excellence checklist) is loaded through the import button from a private file. No VE logos or official marks may be used.
+Real season data (VE dates and team to-dos) is added in the app and lives only in the database, never in this repo. No VE logos or official marks may be used.
 
 ## Product Principles
 
 1. Say how sure a date is. Never show a guess as a fact.
-2. Answer "what's next, what's mine, what changed" within seconds of opening.
+2. Answer "what's next" within seconds of opening. Keep it simple: one list, a month view and team lists, nothing extra.
 3. Shared and honest: every change shows who made it.
 4. Simple enough for a classmate to change the code.
