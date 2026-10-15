@@ -101,13 +101,12 @@ function paintDrawer() {
   if (drawerState.editing) { paintForm(); return; }
   const item = currentItem();
   if (!item) return;
-  const team = dept(item.dept);
   let facts = '';
   if (collection === 'events') {
     const when = item.date ? fmt(item.date, { weekday: 'long', month: 'long', day: 'numeric' }) + (item.end && item.end !== item.date ? ' to ' + fmt(item.end, { weekday: 'long', month: 'long', day: 'numeric' }) : '') : 'No date yet';
     const st = item.status || (item.date ? 'internal' : 'nodate');
     const sCls = { confirmed: 'green', projected: 'amber', nodate: 'red' }[st] || '';
-    facts = fact('When', esc(when)) + fact('What', esc(KINDS[item.kind] || item.kind || 'Event')) + fact('Department', esc(team.name))
+    facts = fact('When', esc(when)) + fact('What', esc(KINDS[item.kind] || item.kind || 'Event')) + fact('Office', esc(deptLabel(item.dept)))
       + fact('Is the date sure?', esc(STATUSES[st] || st), sCls);
     facts += `<p class="status-help">${esc(STATUS_HELP[st] || '')}</p>`;
   } else if (collection === 'coe') {
@@ -115,14 +114,14 @@ function paintDrawer() {
     const n = daysUntil(item.due);
     facts = fact('Points', esc('+' + (Number(item.points) || 0))) + fact('Period', esc(per ? per.name : 'Not set'))
       + fact('Due', esc(item.due ? fmt(item.due, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No set date'), !item.done && n !== null && n < 0 ? 'red' : '')
-      + fact('Department', esc(team.name))
+      + fact('Office', esc(deptLabel(item.dept)))
       + fact('Status', esc(item.done ? checkedBy(item) : 'Not done yet'), item.done ? 'green' : '');
   } else {
     const n = daysUntil(item.due);
     const inText = item.done ? 'Done' : !item.due ? 'No date yet' : n < 0 ? `${-n === 1 ? '1 day' : -n + ' days'} late` : relDays(n);
     const inCls = item.done ? 'green' : n !== null && n < 0 ? 'red' : n !== null && n <= 3 ? 'amber' : '';
     facts = fact('Due', esc(item.due ? fmt(item.due, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No date yet'))
-      + fact('Status', esc(inText), inCls) + fact('Department', esc(team.name)) + fact('Who', esc(item.owner || 'Not assigned yet'));
+      + fact('Status', esc(inText), inCls) + fact('Office', esc(deptLabel(item.dept))) + fact('Who', esc(item.owner || 'Not assigned yet'));
   }
 
   d.innerHTML = `
@@ -142,7 +141,8 @@ function paintDrawer() {
 // ---------- The edit form ----------
 
 const optionsHtml = (pairs, val) => pairs.map(([o, l]) => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(l)}</option>`).join('');
-const deptOptions = (val) => optionsHtml(DEPTS.map((d) => [d.id, d.name]), val);
+// An item on an old team gets a "pick an office" choice, so opening and saving it can't quietly move it.
+const deptOptions = (val) => (isOffice(val) ? '' : `<option value="" selected>Pick an office${dept(val || '').was ? ' (was ' + esc(dept(val).was) + ')' : ''}</option>`) + optionsHtml(DEPTS.map((d) => [d.id, d.name]), val);
 
 function formHtml(collection, v) {
   if (collection === 'events') {
@@ -158,7 +158,7 @@ function formHtml(collection, v) {
         <label for="f-status"><span>How sure is this date?</span><select id="f-status" name="status" required><option value="" disabled ${v.status ? '' : 'selected'}>Choose one</option>${optionsHtml(Object.entries(STATUSES), v.status)}</select></label>
         <p class="status-help" id="status-help">${esc(STATUS_HELP[v.status] || 'Pick one so nobody mistakes a guess for a fact.')}</p>
       </div>
-      <label for="f-dept"><span>Department</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
+      <label for="f-dept"><span>Office</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
       <label for="f-desc"><span>Details <span class="hint">(optional)</span></span><textarea id="f-desc" name="desc" maxlength="2000">${esc(v.desc)}</textarea></label>
       <label for="f-source"><span>Source <span class="hint">(a link starting with https://, or where it came from)</span></span><input id="f-source" type="text" name="source" value="${esc(v.source)}" maxlength="400" autocomplete="off"></label>`;
   }
@@ -170,7 +170,7 @@ function formHtml(collection, v) {
         <label for="f-due"><span>Due <span class="hint">(if there is one)</span></span><input id="f-due" type="date" name="due" value="${esc(v.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
       </div>
       <div class="two">
-        <label for="f-dept"><span>Department</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
+        <label for="f-dept"><span>Office</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
         <label for="f-period"><span>Period</span><select id="f-period" name="period">${optionsHtml(PERIODS.map((p) => [String(p.id), p.name]), String(v.period))}</select></label>
       </div>
       <label for="f-desc"><span>Details</span><textarea id="f-desc" name="desc" maxlength="2000">${esc(v.desc)}</textarea></label>`;
@@ -178,7 +178,7 @@ function formHtml(collection, v) {
   return `
     <label for="f-title"><span>What</span><input id="f-title" type="text" name="title" value="${esc(v.title)}" required maxlength="160" autocomplete="off"></label>
     <div class="two">
-      <label for="f-dept"><span>Department</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
+      <label for="f-dept"><span>Office</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
       <label for="f-due"><span>Due <span class="hint">(if you know)</span></span><input id="f-due" type="date" name="due" value="${esc(v.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
     </div>
     <label for="f-owner"><span>Who <span class="hint">(first names, comma between)</span></span><input id="f-owner" type="text" name="owner" value="${esc(v.owner)}" maxlength="400" list="owners" autocomplete="off"></label>
@@ -272,6 +272,7 @@ async function saveDrawer() {
   for (const el of form.querySelectorAll('input[type=date]')) if (!el.checkValidity()) return formError(el, 'That date has to be between 2026 and 2027.');
   const data = { title };
   for (const k of collection === 'events' ? ['date', 'end', 'kind', 'status', 'dept', 'desc', 'source'] : collection === 'coe' ? ['dept', 'due', 'desc'] : ['dept', 'due', 'owner', 'desc']) data[k] = f[k].value.trim();
+  if (!data.dept) delete data.dept; // still "pick an office": leave the old team as it was
 
   if (collection === 'events') {
     if (!data.status) return formError(f.status, 'Pick how sure this date is.');

@@ -4,10 +4,10 @@ The shared calendar and department to-do lists for our Virtual Enterprise firm (
 
 Kept deliberately simple: one list of what's coming up, a month calendar, and a to-do list per team.
 
-- **Board (home):** a station-style "Departures" board. Every open to-do and every upcoming deadline or event is one row, sorted by date. Check a to-do off right on the board; tap any row for its details (including how sure a deadline's date is).
-- **Month:** a normal month calendar; tap a day to see its items.
-- **Team tabs:** Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Each is a to-do list with a description, an owner and a due date.
-- **Add to-do:** add a to-do for any team from one form, with every team's open to-dos listed underneath.
+- **Home:** a month calendar with the to-do list beside it (this page is still being rebuilt).
+- **Offices:** CEO office · Operations · Finance & Compliance · Marketing · Sales · Technology · HR · All-firm. On a phone they sit in one "Offices" picker; on a wide screen they are tabs. Each office page shows that office's links and open to-dos.
+- **Mine** (coming soon) and **Circles** (our points checklist for the year).
+- **Unsorted:** anything still on an old team or with no office, so nothing gets lost. Open an item and pick its office to move it.
 
 **Who can do what**
 
@@ -21,7 +21,7 @@ This repo holds **code only**. The firm's calendar, to-dos and names live in the
 
 ## How it works
 
-- `public/` is the website (plain HTML, CSS and JavaScript, no build step). The JavaScript is split by part of the site: `js/core.js` (data, dates, saving), `js/board.js` (the home board), `js/views.js` (Month, team tabs, the Add page), `js/drawer.js` (the detail panel), `js/main.js` (login, tabs, clicks, keyboard).
+- `public/` is the website (plain HTML, CSS and JavaScript, no build step). The JavaScript is split by part of the site: `js/core.js` (data, dates, saving), `js/board.js` (the home board), `js/views.js` (office pages, Unsorted, Circles, Recently deleted), `js/drawer.js` (the detail panel), `js/main.js` (login, tabs, clicks, keyboard).
 - `api/` holds the small server functions Vercel runs: `login` (checks the class passcode), `data` (loads everything), `item` (saves, edits or deletes one thing; edits merge onto the newest copy so nobody overwrites a classmate).
 - The data is stored in Upstash Redis, a free database that plugs into Vercel.
 - `PRODUCT.md` says who this is for and why; `DESIGN.md` is the style guide (colors, type, the board) so changes stay consistent.

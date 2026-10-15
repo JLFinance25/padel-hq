@@ -3,14 +3,23 @@
 'use strict';
 
 const DEPTS = [
-  { id: 'racquets', name: 'Racquets', code: 'Racquets', blurb: 'The set in both sizes: sourcing, samples, the Gauge and inventory.' },
-  { id: 'apparel', name: 'Apparel & Booth', code: 'Apparel', blurb: 'The pair-kit uniform and the booth that waits for four.' },
-  { id: 'tech', name: 'Technology', code: 'Tech', blurb: 'The free scorer, the website and store, and the tech competitions.' },
-  { id: 'finance', name: 'Finance & Compliance', code: 'Finance', blurb: 'Prices, the Numbers Ledger, books, payroll and taxes, and the rules and trademark checks.' },
-  { id: 'sales', name: 'Sales & Marketing', code: 'Sales', blurb: 'The catalog, buyers, the sales pitch, branding, video, newsletter and social.' },
-  { id: 'firm', name: 'All-firm', code: 'All firm', blurb: 'The business plan, questions for our teacher, trade shows, trips and people.' },
+  { id: 'ceo', name: 'CEO office', code: 'CEO', blurb: 'The business plan as a whole, decisions, and every talk with Ms. Garrison and the judges.' },
+  { id: 'ops', name: 'Operations', code: 'Ops', blurb: "The set and what's in the box, samples, inventory, and getting everything to the booth." },
+  { id: 'finance', name: 'Finance & Compliance', code: 'Finance', blurb: 'Prices, the Numbers Ledger, payroll and taxes, and the rules: legal form, disclaimer, trademark, labels.' },
+  { id: 'marketing', name: 'Marketing', code: 'Marketing', blurb: 'The brand, branding PDF, video, newsletter, social, apparel and the booth design.' },
+  { id: 'sales', name: 'Sales', code: 'Sales', blurb: 'The catalog, buyer list, firm-to-firm selling and selling at trade shows.' },
+  { id: 'tech', name: 'Technology', code: 'Tech', blurb: 'The scorer, the website and store, and this site.' },
+  { id: 'hr', name: 'HR', code: 'HR', blurb: 'Hiring into seats, training, reviews, payroll records and the booth shift rota.' },
+  { id: 'firm', name: 'All-firm', code: 'All firm', blurb: 'Trade shows, trips, competitions and anything everyone does.' },
 ];
-const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '' };
+// Old team ids and the office each one probably belongs to. For display only: such items stay under
+// Unsorted until someone moves them (nothing is changed in the saved data).
+const LEGACY = { racquets: 'ops', apparel: 'marketing' };
+const LEGACY_NAMES = { racquets: 'Racquets', apparel: 'Apparel & Booth' };
+const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '', was: LEGACY_NAMES[id] || '' };
+const isOffice = (id) => DEPTS.some((d) => d.id === id);
+// "Operations", or "Unsorted (was Racquets)" for an item still on an old team.
+const deptLabel = (id) => { const d = dept(id); return d.was ? `${d.name} (was ${d.was})` : d.name; };
 
 const KINDS = { deadline: 'Deadline', competition: 'Competition', tradeshow: 'Trade show', trip: 'Field trip', event: 'Event', internal: 'Our milestone', dayoff: 'No school' };
 const STATUSES = { confirmed: 'Confirmed', projected: 'Projected', teacher: 'From our teacher', internal: 'Our target', nodate: 'No date yet' };
@@ -40,7 +49,7 @@ const isPhone = () => window.innerWidth <= 680;
 
 const S = {
   events: [], tasks: [], links: [], coe: [],
-  view: 'calendar', loaded: false,
+  view: 'home', office: '', loaded: false,
   month: startOfMonth(new Date()), sel: null,
   todoTeam: 'all', // the to-do sidebar's department filter
   me: store('phq_me') || '', // first name, so check-offs show who did them

@@ -91,6 +91,22 @@ select.compact { width: auto; }
 .tab .count { font-size: 14px; font-weight: 600; background: var(--paper-2); color: var(--ink); border-radius: 99px; padding: 2px 9px; }
 .tab[aria-current="page"] .count { background: rgba(255,255,255,.2); color: #fff; }
 .tab-sep { width: 1px; background: var(--line); margin: 8px 6px; flex: none; }
+/* "Offices" is a native picker dressed as a tab. Wide screens show the eight offices as tabs instead. */
+.tab.tab-select { position: relative; padding: 0; min-width: 0; }
+.tab-select select { width: auto; min-width: 0; max-width: 100%; min-height: 48px; border: 0; border-radius: 10px; background-color: transparent; padding: 10px 34px 10px 16px; font-size: 18px; font-weight: 500; color: var(--ink); text-overflow: ellipsis; background-position: right 12px center; cursor: pointer; }
+.tab-select:hover { background: var(--paper-2); }
+.tab-select.is-current, .tab-select.is-current:hover { background: var(--ink); }
+.tab-select.is-current select { color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+.tab-select select:focus { box-shadow: 0 0 0 3px var(--green-soft); }
+.tab-select select option { color: var(--ink); background: #fff; }
+.office-tabs { display: none; }
+@media (min-width: 900px) {
+  .tabs { flex-wrap: wrap; overflow-x: visible; }
+  .tab-select { display: none; }
+  .office-tabs { display: contents; }
+  .office-tabs .tab { font-size: 16px; padding: 10px 11px; }
+  .tab-sep { display: none; }
+}
 
 /* Asks for a first name when someone logged in before names existed */
 .name-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 10px 24px; background: var(--yellow-soft); border-bottom: 1px solid var(--line); }
@@ -175,6 +191,10 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 .todo-sub { display: block; margin-top: 3px; font-size: 15px; color: var(--muted); }
 .todo-sub .late { color: var(--red); font-weight: 600; }
 .todo-sub .soon { color: var(--amber-ink); font-weight: 600; }
+.unsorted-row { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.unsorted-row:last-child { border-bottom: 0; }
+a.todo-open { display: block; color: inherit; text-decoration: none; }
+.todo-open { overflow-wrap: anywhere; }
 .trash-link { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 8px; font-size: 16px; }
 
 /* ---------- Circles of Excellence ---------- */
@@ -340,7 +360,10 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 @media (max-width: 680px) {
   .topbar { padding: 10px 16px; }
   .working, .wordmark { display: none; }
-  .tabs { padding: 8px 12px; }
+  .tabs { padding: 8px 8px; gap: 2px; overflow-x: hidden; }
+  .tab { padding: 10px 10px; font-size: 17px; }
+  .tab-select { flex: 1 1 0; }
+  .tab-select select { width: 100%; font-size: 17px; padding: 10px 28px 10px 10px; background-position: right 8px center; }
   main { padding: 20px 12px 72px; }
   .page-head h1 { font-size: 30px; }
   .cal-title { font-size: 30px; }

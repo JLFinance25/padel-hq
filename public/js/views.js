@@ -1,7 +1,7 @@
-// The other pages: one resource page per department, and Recently deleted.
+// The other pages: one page per office, Unsorted, Mine (for now), Circles and Recently deleted.
 'use strict';
 
-// ---------- Department pages: quick links, learning material, and the team's to-dos ----------
+// ---------- Office pages: quick links, learning material, and the office's to-dos ----------
 
 function linkCards(list, empty) {
   if (!list.length) return `<p class="hint">${empty}</p>`;
@@ -23,11 +23,53 @@ function viewDept(id) {
   return `
     <div class="page-head"><div><h1>${esc(d.name)}</h1><p>${esc(d.blurb)}</p></div></div>
     <h2 class="group-title">Quick links</h2>
-    ${linkCards(links.filter((l) => l.section !== 'learn'), 'No links yet. Ask the CEO to add your team’s spreadsheets and accounts.')}
+    ${linkCards(links.filter((l) => l.section !== 'learn'), 'No links yet. Ask the CEO to add your office’s spreadsheets and accounts.')}
     <h2 class="group-title">Learn</h2>
     ${linkCards(links.filter((l) => l.section === 'learn'), 'No learning material yet.')}
     <h2 class="group-title">${esc(d.name)} to-dos (${todos.length})</h2>
     ${todos.length ? `<ul class="todo-list boxed">${todos.map((t) => todoRow(t, false)).join('')}</ul>` : '<p class="hint">No open to-dos.</p>'}`;
+}
+
+// ---------- Unsorted: anything not on one of the eight offices ----------
+
+function unsortedItems() {
+  const off = (x) => !isOffice(x.dept);
+  const byDue = (a, b) => (a.due || a.date || '9999').localeCompare(b.due || b.date || '9999') || a.title.localeCompare(b.title);
+  return {
+    tasks: S.tasks.filter(off).sort(byDue), events: S.events.filter(off).sort(byDue),
+    coe: S.coe.filter(off).sort(byDue), links: S.links.filter(off).sort((a, b) => a.title.localeCompare(b.title)),
+  };
+}
+const unsortedCount = () => { const u = unsortedItems(); return u.tasks.length + u.events.length + u.coe.length + u.links.length; };
+
+// "Was Racquets, probably Operations" for an item still on an old team.
+function unsortedHint(id) {
+  const d = dept(id);
+  const maybe = LEGACY[id] ? dept(LEGACY[id]).name : '';
+  return (d.was ? 'Was ' + d.was : 'No office yet') + (maybe ? ', probably ' + maybe : '');
+}
+
+function viewUnsorted() {
+  const u = unsortedItems();
+  const total = unsortedCount();
+  const hintRow = (x) => `<span class="todo-sub">${esc(unsortedHint(x.dept))}</span>`;
+  const section = (title, list, row) => list.length ? `<h2 class="group-title">${title} (${list.length})</h2><ul class="ruled unsorted-list">${list.map(row).join('')}</ul>` : '';
+  const rowOpen = (c, x, sub) => `<li class="unsorted-row"><button class="todo-open" data-open="${c}:${esc(x.id)}"><span class="todo-title">${esc(x.title)}</span><span class="todo-sub">${sub}</span></button></li>`;
+  return `
+    <div class="page-head"><div><h1>Unsorted${total ? ` (${total})` : ''}</h1>
+      <p>These are not on one of the eight offices yet. Open an item and pick its office to move it.</p></div></div>
+    ${total ? [
+      section('To-dos', u.tasks, (t) => rowOpen('tasks', t, `${esc(t.due ? fmt(t.due, { month: 'short', day: 'numeric' }) : 'No date yet')}${t.done ? ' · done' : ''} · ${esc(unsortedHint(t.dept))}`)),
+      section('Calendar items', u.events, (e) => rowOpen('events', e, `${esc(e.date ? fmt(e.date, { month: 'short', day: 'numeric' }) : 'No date yet')} · ${esc(unsortedHint(e.dept))}`)),
+      section('Circles items', u.coe, (c) => rowOpen('coe', c, `+${esc(coePts(c))} · ${esc(unsortedHint(c.dept))}`)),
+      section('Links', u.links, (l) => `<li class="unsorted-row"><a class="todo-open" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer"><span class="todo-title">${esc(l.title)}</span>${hintRow(l)}</a></li>`),
+    ].join('') : '<p class="empty"><b>Nothing here.</b>Every item is on an office.</p>'}`;
+}
+
+// ---------- Mine (placeholder until the real page lands) ----------
+
+function viewMine() {
+  return `<div class="page-head"><div><h1>Mine</h1><p>Coming soon: the to-dos with your name on them.</p></div></div>`;
 }
 
 // ---------- Circles of Excellence ----------
@@ -60,7 +102,7 @@ function coeRowHtml(c, bonus) {
     <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
     <button class="coe-open" data-open="coe:${esc(c.id)}">
       <span class="r-title">${esc(c.title)}</span>
-      <span class="r-desc coe-meta">${esc(dept(c.dept).name)}${dueText ? ` · <span class="${late ? 'overdue' : ''}">${esc(dueText)}${late ? ' (late)' : ''}</span>` : ''}</span>
+      <span class="r-desc coe-meta">${esc(deptLabel(c.dept))}${dueText ? ` · <span class="${late ? 'overdue' : ''}">${esc(dueText)}${late ? ' (late)' : ''}</span>` : ''}</span>
       ${who ? `<span class="coe-who">${esc(who)}</span>` : ''}
     </button>
     <span class="pill coe-pts">+${esc(coePts(c))}</span>
@@ -146,7 +188,7 @@ function viewDeleted() {
     <div class="page-head">
       <div><h1>Recently deleted${list.length ? ` (${list.length})` : ''}</h1>
       <p>Deleted things wait here for ${TRASH_DAYS} days. Put back brings one back just as it was.</p></div>
-      <a class="btn" href="#calendar">${icon('left')}Back to the calendar</a>
+      <a class="btn" href="#home">${icon('left')}Back home</a>
     </div>
     ${rows.length ? `<ul class="ruled">${rows.join('')}</ul>` : '<p class="empty">Nothing deleted in the last 30 days.</p>'}`;
 }

@@ -80,25 +80,47 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-// Old #suggest links are not a page any more, so they land on the calendar.
-const isView = (v) => v === 'calendar' || v === 'circles' || v === 'deleted' || DEPTS.some((d) => d.id === v);
+// The pages: #home (also #calendar), #o/<office>, #mine, #circles, #deleted, #unsorted.
+// Anything else (like the old #suggest) goes Home.
+function parseHash() {
+  const [v, id] = (location.hash.slice(1) || 'home').split('/');
+  if (v === 'home' || v === 'calendar') return { view: 'home', office: '' };
+  if (v === 'o' && isOffice(id)) return { view: 'office', office: id };
+  if (v === 'mine' || v === 'circles' || v === 'deleted' || v === 'unsorted') return { view: v, office: '' };
+  return null;
+}
 
+let lastTabs = '';
 function renderTabs() {
-  const tab = (id, label, ic = '') => `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''}>${ic ? icon(ic) : ''}${esc(label)}</a>`;
-  $('#tabs').innerHTML =
-    tab('calendar', 'Calendar', 'grid') +
-    tab('circles', 'Circles', 'check') +
-    '<span class="tab-sep" aria-hidden="true"></span>' +
-    DEPTS.map((d) => tab(d.id, d.name)).join('');
+  const view = S.view, off = S.office;
+  const link = (href, label, current) => `<a class="tab" href="${href}" ${current ? 'aria-current="page"' : ''}>${esc(label)}</a>`;
+  const n = unsortedCount();
+  const onOffice = view === 'office', onUnsorted = view === 'unsorted';
+  // Phones: one "Offices" picker. Wide screens: the eight offices as tabs.
+  const picker = `<label class="tab tab-select${onOffice || onUnsorted ? ' is-current' : ''}"><span class="sr">Offices</span>
+    <select data-act="office-pick" aria-label="Offices">
+      <option value="" ${onOffice || onUnsorted ? '' : 'selected'} disabled hidden>Offices</option>
+      ${DEPTS.map((d) => `<option value="o/${d.id}" ${onOffice && off === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}
+      ${n || onUnsorted ? `<option value="unsorted" ${onUnsorted ? 'selected' : ''}>Unsorted (${n})</option>` : ''}
+    </select></label>`;
+  const officeTabs = DEPTS.map((d) => link('#o/' + d.id, d.name, onOffice && off === d.id)).join('')
+    + (n || onUnsorted ? link('#unsorted', `Unsorted (${n})`, onUnsorted) : '');
+  const html = link('#home', 'Home', view === 'home')
+    + picker + `<span class="office-tabs">${officeTabs}</span>`
+    + link('#mine', 'Mine', view === 'mine')
+    + link('#circles', 'Circles', view === 'circles');
+  if (html === lastTabs) return; // unchanged: leave it alone so an open picker isn't closed by a repaint
+  lastTabs = html;
+  $('#tabs').innerHTML = html;
 }
 
 function route() {
-  const v = (location.hash.slice(1) || 'calendar').split('/')[0];
-  const next = isView(v) ? v : 'calendar';
-  if (!isView(v) && location.hash) history.replaceState(null, '', '#calendar'); // an address that isn't a page
-  const changed = next !== S.view;
+  const hit = parseHash();
+  const next = hit || { view: 'home', office: '' };
+  if (!hit && location.hash) history.replaceState(null, '', '#home'); // an address that isn't a page
+  const changed = next.view !== S.view || next.office !== S.office;
   if (changed && drawerState) closeDrawer();
-  S.view = next;
+  S.view = next.view; S.office = next.office;
   renderTabs(); render();
   if (changed) { window.scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); }
   $('#tabs [aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -116,10 +138,12 @@ function render() {
   // Remember focus, then repaint, then put it back.
   const fk = focusKey(document.activeElement);
 
-  if (S.view === 'calendar') main.innerHTML = viewHome();
+  if (S.view === 'home') main.innerHTML = viewHome(); // Task 12 replaces this with the real Home
+  else if (S.view === 'office') main.innerHTML = viewDept(S.office);
+  else if (S.view === 'mine') main.innerHTML = viewMine();
   else if (S.view === 'circles') main.innerHTML = viewCircles();
   else if (S.view === 'deleted') main.innerHTML = viewDeleted();
-  else main.innerHTML = viewDept(S.view);
+  else main.innerHTML = viewUnsorted();
 
   if (!drawerState) restoreFocus(fk);
 }
@@ -178,6 +202,7 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   if (e.target.dataset?.act === 'todo-team') { S.todoTeam = e.target.value; render(); }
+  if (e.target.dataset?.act === 'office-pick' && e.target.value) location.hash = '#' + e.target.value;
   if (e.target.id === 'f-status') showStatusHelp(e.target);
 });
 

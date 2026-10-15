@@ -69,7 +69,7 @@ function todoRow(t, showTeam = S.todoTeam === 'all') {
     <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Mark done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="todo-open" data-open="tasks:${esc(t.id)}">
       <span class="todo-title">${esc(t.title)}</span>
-      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(dept(t.dept).name)}` : ''}${tag}</span>
+      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(deptLabel(t.dept))}` : ''}${tag}</span>
     </button>
   </li>`;
 }
@@ -94,9 +94,9 @@ function todoSidebar() {
   return `<aside class="todos" aria-labelledby="todo-title">
       <div class="todos-head">
         <h2 id="todo-title">To-do list</h2>
-        <label class="sr" for="todo-team">Department</label>
+        <label class="sr" for="todo-team">Office</label>
         <select id="todo-team" data-act="todo-team">
-          <option value="all">All departments</option>
+          <option value="all">All offices</option>
           ${DEPTS.map((d) => `<option value="${d.id}" ${S.todoTeam === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}
         </select>
       </div>
