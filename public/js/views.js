@@ -30,6 +30,89 @@ function viewDept(id) {
     ${todos.length ? `<ul class="todo-list boxed">${todos.map((t) => todoRow(t, false)).join('')}</ul>` : '<p class="hint">No open to-dos.</p>'}`;
 }
 
+// ---------- Circles of Excellence ----------
+
+const pointsWord = (n) => `${n} point${n === 1 ? '' : 's'}`;
+const coePts = (c) => Number(c.points) || 0;
+
+// Which numbered period is today in (before the first one counts as the first, after the last as the last).
+function currentPeriodId() {
+  const t = todayKey();
+  const numbered = PERIODS.filter((p) => !p.bonus);
+  const hit = numbered.find((p) => t >= p.starts && t <= p.ends);
+  return (hit || (t < numbered[0].starts ? numbered[0] : numbered[numbered.length - 1])).id;
+}
+
+// "Checked by Maya · Oct 15" for a ticked item.
+function checkedBy(c) {
+  if (!c.done) return '';
+  const day = c.doneAt && !isNaN(new Date(c.doneAt)) ? new Date(c.doneAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const parts = [c.doneBy ? 'Checked by ' + c.doneBy : 'Checked off', day].filter(Boolean);
+  return parts.join(' · ');
+}
+
+function coeRowHtml(c, bonus) {
+  const n = daysUntil(c.due);
+  const late = !c.done && n !== null && n < 0;
+  const dueText = c.due && !bonus ? `due ${fmt(c.due, { month: 'short', day: 'numeric' })}` : '';
+  const who = checkedBy(c);
+  return `<li class="coe-row${c.done ? ' is-done' : ''}">
+    <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
+    <button class="coe-open" data-open="coe:${esc(c.id)}">
+      <span class="r-title">${esc(c.title)}</span>
+      <span class="r-desc coe-meta">${esc(dept(c.dept).name)}${dueText ? ` · <span class="${late ? 'overdue' : ''}">${esc(dueText)}${late ? ' (late)' : ''}</span>` : ''}</span>
+      ${who ? `<span class="coe-who">${esc(who)}</span>` : ''}
+    </button>
+    <span class="pill coe-pts">+${esc(coePts(c))}</span>
+  </li>`;
+}
+
+function viewCircles() {
+  const { done, bonus, listed } = coeScore();
+  const pct = Math.min(100, Math.round((done / COE_TOTAL) * 100));
+  const next = TIERS.find((t) => done < t.points);
+  const gold = TIERS[TIERS.length - 1];
+  const reached = [...TIERS].reverse().find((t) => done >= t.points);
+  const msg = !next ? 'Gold reached. Keep every box checked through May.'
+    : (reached ? `${reached.name} reached · ` : '') + (next.id === 'gold' ? `${pointsWord(gold.points - done)} to Gold` : `${pointsWord(next.points - done)} to ${next.name} · ${gold.points - done} to Gold`);
+  const marks = TIERS.map((t) => `<span class="coe-mark ${t.id}${done >= t.points ? ' hit' : ''}" style="left:${(t.points / COE_TOTAL) * 100}%"><i></i><em>${t.name}<b>${t.points}</b></em></span>`).join('');
+
+  const nowId = currentPeriodId();
+  const t = todayKey();
+  const sections = PERIODS.map((p) => {
+    const items = S.coe.filter((c) => String(c.period) === String(p.id)).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title));
+    if (!items.length) return null;
+    const open = items.filter((c) => !c.done).length;
+    const past = p.ends < t;
+    const isNow = !p.bonus && p.id === nowId;
+    const got = items.filter((c) => c.done).reduce((n, c) => n + coePts(c), 0);
+    const max = items.reduce((n, c) => n + coePts(c), 0);
+    // Current period first, then past ones with open items (late), then coming ones, bonuses, and finished past ones last.
+    const rank = isNow ? 0 : past && open && !p.bonus ? 1 : !past && !p.bonus ? 2 : !past ? 3 : 4;
+    const flag = past && open ? `<span class="pill coe-late">${p.bonus ? 'Closed' : 'Late'} · ${open} open</span>` : isNow ? '<span class="pill coe-now">Now</span>' : '';
+    const score = p.bonus ? `${Math.min(2, got)} of 2 max` : `${got} of ${max} pts`;
+    return { rank, html: `<section class="coe-period" aria-label="${esc(p.name)}">
+      <div class="coe-period-head"><h2>${esc(p.name)} <span class="hint">${esc(p.span)}</span></h2>${flag}<span class="coe-period-score">${score}</span></div>
+      <ul class="ruled">${items.map((c) => coeRowHtml(c, p.bonus)).join('')}</ul>
+    </section>` };
+  }).filter(Boolean).sort((a, b) => a.rank - b.rank);
+
+  return `
+    <div class="page-head"><div><h1>Circles of Excellence</h1>
+      <p>VE's checklist for the year. Each item is worth points, and Gold means ${gold.points} of ${COE_TOTAL}.</p></div></div>
+    <section class="coe-hero" aria-label="Our score: ${done} of ${COE_TOTAL} points">
+      <p class="coe-score"><b>${done}</b> of ${COE_TOTAL}</p>
+      <div class="coe-bar">
+        <div class="coe-track" role="img" aria-label="${done} of ${COE_TOTAL} points. Bronze at 36, Silver at 48, Gold at 54."><div class="coe-fill" style="width:${pct}%"></div></div>
+        <div class="coe-marks" aria-hidden="true">${marks}</div>
+      </div>
+      <p class="coe-msg">${esc(msg)}</p>
+      <p class="coe-bonus">Bonus ${bonus} of 4</p>
+      ${listed !== COE_TOTAL ? `<p class="coe-note">VE says the year is worth ${COE_TOTAL} points, but the items listed add up to ${listed}. We're asking Ms. Garrison.</p>` : ''}
+    </section>
+    ${S.coe.length ? sections.map((x) => x.html).join('') : '<p class="empty"><b>The checklist is empty.</b>Nothing has been loaded yet.</p>'}`;
+}
+
 // ---------- Recently deleted (everyone logged in) ----------
 
 const TRASH_DAYS = 30;

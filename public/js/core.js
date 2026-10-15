@@ -21,12 +21,25 @@ const STATUS_HELP = {
   internal: 'A target our firm set for itself. It can move.',
   nodate: 'No date found anywhere yet.',
 };
+// Circles of Excellence: VE's yearly points checklist.
+const PERIODS = [
+  { id: 1, name: 'Period 1', short: 'P1', span: 'Aug to Oct 2026', starts: '2026-08-01', ends: '2026-10-31' },
+  { id: 2, name: 'Period 2', short: 'P2', span: 'Nov 2026', starts: '2026-11-01', ends: '2026-11-30' },
+  { id: 3, name: 'Period 3', short: 'P3', span: 'Dec 2026', starts: '2026-12-01', ends: '2026-12-31' },
+  { id: 4, name: 'Period 4', short: 'P4', span: 'Jan to Feb 2027', starts: '2027-01-01', ends: '2027-02-28' },
+  { id: 5, name: 'Period 5', short: 'P5', span: 'Mar to Apr 2027', starts: '2027-03-01', ends: '2027-04-30' },
+  { id: 6, name: 'Period 6', short: 'P6', span: 'May 2027', starts: '2027-05-01', ends: '2027-05-31' },
+  { id: 'fall-bonus', name: 'Fall bonus', span: 'Aug 1 to Jan 31, up to 2 points', ends: '2027-01-31', bonus: true },
+  { id: 'spring-bonus', name: 'Spring bonus', span: 'Feb 1 to May 31, up to 2 points', ends: '2027-05-31', bonus: true },
+];
+const COE_TOTAL = 60;
+const TIERS = [{ id: 'bronze', name: 'Bronze', points: 36 }, { id: 'silver', name: 'Silver', points: 48 }, { id: 'gold', name: 'Gold', points: 54 }];
 const DATE_MIN = '2026-01-01', DATE_MAX = '2027-12-31';
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isPhone = () => window.innerWidth <= 680;
 
 const S = {
-  events: [], tasks: [], links: [],
+  events: [], tasks: [], links: [], coe: [],
   view: 'calendar', loaded: false,
   month: startOfMonth(new Date()), sel: null,
   todoTeam: 'all', // the to-do sidebar's department filter
@@ -109,7 +122,7 @@ async function refresh(quiet) {
     if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
     const first = !S.loaded;
-    S.events = data.events || []; S.tasks = data.tasks || []; S.links = data.links || [];
+    S.events = data.events || []; S.tasks = data.tasks || []; S.links = data.links || []; S.coe = data.coe || [];
     S.trash = data.trash || [];
     S.loaded = true; S.loadError = null;
     renderTabs(); render(); // an open form is left alone: syncDrawer skips it
@@ -122,7 +135,7 @@ async function refresh(quiet) {
 }
 
 function putLocal(collection, item) {
-  if (!S[collection]) return; // lists the page doesn't show (like Circles)
+  if (!S[collection]) return; // a list this page doesn't keep
   const i = S[collection].findIndex((x) => x.id === item.id);
   if (i >= 0) S[collection][i] = item; else S[collection].push(item);
 }
@@ -153,6 +166,7 @@ async function updateItem(collection, id, fields) {
   try {
     const { item: saved } = await api('/api/item', { method: 'POST', body: JSON.stringify({ collection, item: { id, ...fields }, patch: true, who: S.me }) });
     putLocal(collection, saved);
+    if (collection === 'coe') { renderTabs(); render(); } // the server adds who ticked it and when
     return saved;
   } catch (e) {
     if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
@@ -210,3 +224,13 @@ async function toggleDone(collection, id) {
 }
 
 function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }
+
+// The Circles score. done = points ticked (bonus items left out), bonus = up to 2 per bonus window,
+// listed = every regular point on the list (VE says 60, the list may add up to more).
+function coeScore() {
+  const pts = (c) => Number(c.points) || 0;
+  const sum = (list) => list.reduce((n, c) => n + pts(c), 0);
+  const regular = S.coe.filter((c) => !c.bonus);
+  const bonusIn = (p) => Math.min(2, sum(S.coe.filter((c) => c.bonus && c.period === p && c.done)));
+  return { done: sum(regular.filter((c) => c.done)), bonus: bonusIn('fall-bonus') + bonusIn('spring-bonus'), listed: sum(regular) };
+}

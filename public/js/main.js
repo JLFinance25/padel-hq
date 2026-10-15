@@ -81,12 +81,13 @@ function restoreFocus(key) {
 // ---------- Tabs and routing ----------
 
 // Old #suggest links are not a page any more, so they land on the calendar.
-const isView = (v) => v === 'calendar' || v === 'deleted' || DEPTS.some((d) => d.id === v);
+const isView = (v) => v === 'calendar' || v === 'circles' || v === 'deleted' || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
   const tab = (id, label, ic = '') => `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''}>${ic ? icon(ic) : ''}${esc(label)}</a>`;
   $('#tabs').innerHTML =
     tab('calendar', 'Calendar', 'grid') +
+    tab('circles', 'Circles', 'check') +
     '<span class="tab-sep" aria-hidden="true"></span>' +
     DEPTS.map((d) => tab(d.id, d.name)).join('');
 }
@@ -116,6 +117,7 @@ function render() {
   const fk = focusKey(document.activeElement);
 
   if (S.view === 'calendar') main.innerHTML = viewHome();
+  else if (S.view === 'circles') main.innerHTML = viewCircles();
   else if (S.view === 'deleted') main.innerHTML = viewDeleted();
   else main.innerHTML = viewDept(S.view);
 

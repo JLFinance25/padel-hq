@@ -110,6 +110,13 @@ function paintDrawer() {
     facts = fact('When', esc(when)) + fact('What', esc(KINDS[item.kind] || item.kind || 'Event')) + fact('Department', esc(team.name))
       + fact('Is the date sure?', esc(STATUSES[st] || st), sCls);
     facts += `<p class="status-help">${esc(STATUS_HELP[st] || '')}</p>`;
+  } else if (collection === 'coe') {
+    const per = PERIODS.find((x) => String(x.id) === String(item.period));
+    const n = daysUntil(item.due);
+    facts = fact('Points', esc('+' + (Number(item.points) || 0))) + fact('Period', esc(per ? per.name : 'Not set'))
+      + fact('Due', esc(item.due ? fmt(item.due, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No set date'), !item.done && n !== null && n < 0 ? 'red' : '')
+      + fact('Department', esc(team.name))
+      + fact('Status', esc(item.done ? checkedBy(item) : 'Not done yet'), item.done ? 'green' : '');
   } else {
     const n = daysUntil(item.due);
     const inText = item.done ? 'Done' : !item.due ? 'No date yet' : n < 0 ? `${-n === 1 ? '1 day' : -n + ' days'} late` : relDays(n);
@@ -126,8 +133,8 @@ function paintDrawer() {
       ${item.source ? `<p class="meta">Source: ${safeLink(item.source)}</p>` : ''}
     </div>
     <div class="drawer-foot">
-      <button class="btn btn-danger foot-left" type="button" data-act="delete">${icon('trash')}Delete</button>
-      ${collection === 'tasks' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : ''}
+      ${collection === 'coe' ? '' : `<button class="btn btn-danger foot-left" type="button" data-act="delete">${icon('trash')}Delete</button>`}
+      ${collection === 'tasks' || collection === 'coe' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : ''}
       <button class="btn" type="button" data-act="edit">${icon('edit')}Edit</button>
     </div>`;
 }
@@ -155,6 +162,19 @@ function formHtml(collection, v) {
       <label for="f-desc"><span>Details <span class="hint">(optional)</span></span><textarea id="f-desc" name="desc" maxlength="2000">${esc(v.desc)}</textarea></label>
       <label for="f-source"><span>Source <span class="hint">(a link starting with https://, or where it came from)</span></span><input id="f-source" type="text" name="source" value="${esc(v.source)}" maxlength="400" autocomplete="off"></label>`;
   }
+  if (collection === 'coe') {
+    return `
+      <label for="f-title"><span>What</span><input id="f-title" type="text" name="title" value="${esc(v.title)}" required maxlength="160" autocomplete="off"></label>
+      <div class="two">
+        <label for="f-points"><span>Points</span><input id="f-points" type="number" name="points" value="${esc(v.points)}" min="0" max="20" step="1" inputmode="numeric" required></label>
+        <label for="f-due"><span>Due <span class="hint">(if there is one)</span></span><input id="f-due" type="date" name="due" value="${esc(v.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
+      </div>
+      <div class="two">
+        <label for="f-dept"><span>Department</span><select id="f-dept" name="dept">${deptOptions(v.dept)}</select></label>
+        <label for="f-period"><span>Period</span><select id="f-period" name="period">${optionsHtml(PERIODS.map((p) => [String(p.id), p.name]), String(v.period))}</select></label>
+      </div>
+      <label for="f-desc"><span>Details</span><textarea id="f-desc" name="desc" maxlength="2000">${esc(v.desc)}</textarea></label>`;
+  }
   return `
     <label for="f-title"><span>What</span><input id="f-title" type="text" name="title" value="${esc(v.title)}" required maxlength="160" autocomplete="off"></label>
     <div class="two">
@@ -174,7 +194,7 @@ function paintForm() {
   // A new item starts blank (events get no "how sure" until the person picks one).
   const start = collection === 'events' ? { kind: 'event', dept: 'firm' } : { dept: 'firm' };
   const base = drawerState.snap || { ...start, ...defaults };
-  const word = collection === 'events' ? 'calendar item' : 'to-do';
+  const word = collection === 'events' ? 'calendar item' : collection === 'coe' ? 'Circles item' : 'to-do';
   const owners = [...new Set(S.tasks.flatMap((t) => String(t.owner || '').split(/\s*,\s*/)).map((o) => o.trim()).filter(Boolean).concat(S.me ? [S.me] : []))];
   d.innerHTML = `
     <div class="drawer-head"><h2 id="drawer-title">${drawerState.snap ? 'Edit ' + word : 'New ' + word}</h2>
@@ -251,7 +271,7 @@ async function saveDrawer() {
   if (!title) return formError(f.title, 'Give it a name first.');
   for (const el of form.querySelectorAll('input[type=date]')) if (!el.checkValidity()) return formError(el, 'That date has to be between 2026 and 2027.');
   const data = { title };
-  for (const k of collection === 'events' ? ['date', 'end', 'kind', 'status', 'dept', 'desc', 'source'] : ['dept', 'due', 'owner', 'desc']) data[k] = f[k].value.trim();
+  for (const k of collection === 'events' ? ['date', 'end', 'kind', 'status', 'dept', 'desc', 'source'] : collection === 'coe' ? ['dept', 'due', 'desc'] : ['dept', 'due', 'owner', 'desc']) data[k] = f[k].value.trim();
 
   if (collection === 'events') {
     if (!data.status) return formError(f.status, 'Pick how sure this date is.');
@@ -262,6 +282,13 @@ async function saveDrawer() {
     data.date = data.date || null;
     data.end = data.end && data.end > data.date ? data.end : null;
     if (!data.kind) delete data.kind;
+  } else if (collection === 'coe') {
+    const pts = Number(f.points.value);
+    if (f.points.value.trim() === '' || !Number.isInteger(pts) || pts < 0 || pts > 20) return formError(f.points, 'Points have to be a whole number from 0 to 20.');
+    data.points = pts;
+    data.period = /^\d+$/.test(f.period.value) ? Number(f.period.value) : f.period.value;
+    data.bonus = !!(PERIODS.find((p) => String(p.id) === f.period.value) || {}).bonus;
+    data.due = data.due || null;
   } else {
     data.due = data.due || null;
   }

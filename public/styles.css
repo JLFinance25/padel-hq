@@ -61,7 +61,7 @@ a { color: var(--green); text-underline-offset: 3px; }
 .btn-wide { width: 100%; }
 .icon-btn { display: inline-grid; place-items: center; width: 48px; height: 48px; border: 0; background: none; border-radius: 10px; color: var(--ink); }
 .icon-btn:hover { background: var(--paper-2); }
-input[type=text], input[type=password], input[type=date], select, textarea {
+input[type=text], input[type=password], input[type=date], input[type=number], select, textarea {
   width: 100%; min-height: 50px; border: 2px solid var(--line-2); border-radius: 10px; padding: 10px 14px; background: var(--surface); font-size: 18px; }
 textarea { min-height: 110px; resize: vertical; }
 input::placeholder, textarea::placeholder { color: #737887; }
@@ -176,6 +176,52 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 .todo-sub .late { color: var(--red); font-weight: 600; }
 .todo-sub .soon { color: var(--amber-ink); font-weight: 600; }
 .trash-link { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 8px; font-size: 16px; }
+
+/* ---------- Circles of Excellence ---------- */
+.coe-line { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: baseline; min-height: 44px; margin: 14px 0 0; padding: 10px 14px; background: var(--green-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--ink); text-decoration: none; font-size: 17px; }
+.coe-line:hover { border-color: var(--green); }
+.coe-line span { color: var(--muted); }
+.coe-tag { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 99px; background: var(--yellow-soft); color: var(--amber-ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.coe-hero { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px 22px; margin-bottom: 8px; }
+.coe-score { margin: 0; font-size: 22px; color: var(--muted); }
+.coe-score b { font-size: 64px; line-height: 1; font-weight: 700; color: var(--ink); margin-right: 6px; }
+.coe-bar { margin: 14px 6px 0 0; }
+.coe-track { height: 16px; border-radius: 99px; background: var(--paper-2); border: 1px solid var(--line); overflow: hidden; }
+.coe-fill { height: 100%; background: var(--green); border-radius: 99px; }
+.coe-marks { position: relative; height: 58px; }
+.coe-mark { position: absolute; top: -16px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+.coe-mark i { display: block; width: 2px; height: 16px; background: var(--ink); }
+.coe-mark em { font-style: normal; font-size: 14px; line-height: 1.2; color: var(--muted); text-align: center; white-space: nowrap; margin-top: 2px; }
+.coe-mark em b { display: block; font-size: 16px; color: var(--ink); }
+.coe-mark.hit em { color: var(--green); font-weight: 700; }
+.coe-mark.silver { transform: translateX(-62%); }
+.coe-mark.silver i { margin-left: 62%; }
+.coe-mark.silver { align-items: flex-start; }
+.coe-mark.gold { transform: translateX(-30%); align-items: flex-start; }
+.coe-mark.gold i { margin-left: 30%; }
+.coe-msg { margin: 6px 0 0; font-size: 20px; font-weight: 600; color: var(--ink); }
+.coe-bonus { margin: 6px 0 0; color: var(--text); }
+.coe-note { margin: 10px 0 0; font-size: 15px; color: var(--muted); }
+.coe-period { margin-top: 26px; }
+.coe-period-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 10px; }
+.coe-period-head h2 { margin: 0; font-size: 22px; color: var(--ink); }
+.coe-period-head h2 .hint { font-size: 15px; margin-left: 4px; }
+.coe-period-score { margin-left: auto; font-size: 16px; font-weight: 600; color: var(--muted); }
+.coe-late { background: var(--red-soft); color: var(--red); font-weight: 600; }
+.coe-now { background: var(--green-soft); color: var(--green); font-weight: 600; }
+.coe-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 14px 18px; border-bottom: 1px solid var(--line); position: relative; }
+.coe-row:last-child { border-bottom: 0; }
+.coe-row:hover { background: #FBFAF6; }
+.coe-row.is-done .r-title { text-decoration: line-through; color: var(--muted); }
+.coe-row .tick, .coe-row .coe-pts { position: relative; z-index: 1; }
+.coe-open { border: 0; background: none; text-align: left; padding: 0; min-width: 0; }
+.coe-open::after { content: ""; position: absolute; inset: 0; }
+.coe-open:focus-visible { outline: none; }
+.coe-row:has(.coe-open:focus-visible) { box-shadow: inset 0 0 0 3px var(--green); }
+.coe-meta { display: block; -webkit-line-clamp: unset; }
+.coe-meta .overdue { color: var(--red); font-weight: 600; }
+.coe-who { display: block; margin-top: 4px; font-size: 15px; font-weight: 600; color: var(--green); }
+.coe-pts { background: var(--paper-2); color: var(--ink); font-weight: 600; margin-top: 2px; }
 
 /* ---------- Department links ---------- */
 .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
@@ -306,6 +352,9 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
   .dow div { padding: 8px 2px; text-align: center; font-size: 14px; }
   .legend { font-size: 14px; gap: 6px 12px; }
   .rrow { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; }
+  .coe-row { padding: 12px 12px; gap: 12px; }
+  .coe-score b { font-size: 54px; }
+  .coe-hero { padding: 16px; }
   .form .two, .form .three { grid-template-columns: 1fr; }
   .facts { grid-template-columns: 1fr; gap: 12px; }
   .drawer { top: auto; bottom: 0; left: 0; transform: none; width: 100%; max-height: 88vh; border-radius: 18px 18px 0 0; }

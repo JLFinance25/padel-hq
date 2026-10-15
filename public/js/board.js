@@ -63,13 +63,23 @@ function todoRow(t, showTeam = S.todoTeam === 'all') {
   const n = daysUntil(t.due);
   const cls = n !== null && n < 0 ? 'late' : n !== null && n <= 3 ? 'soon' : '';
   const when = t.due ? (n < 0 ? `${fmt(t.due, { month: 'short', day: 'numeric' })} · ${-n === 1 ? '1 day' : -n + ' days'} late` : `${fmt(t.due)} · ${relDays(n)}`) : 'No date yet';
+  const link = t.coe ? findItem('coe', t.coe) : null; // a to-do that counts toward Circles (ticking it does not tick the Circles item)
+  const tag = link ? ` <span class="coe-tag" title="Counts toward Circles of Excellence">Circles +${esc(Number(link.points) || 0)}</span>` : '';
   return `<li class="todo">
     <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Mark done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="todo-open" data-open="tasks:${esc(t.id)}">
       <span class="todo-title">${esc(t.title)}</span>
-      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(dept(t.dept).name)}` : ''}</span>
+      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(dept(t.dept).name)}` : ''}${tag}</span>
     </button>
   </li>`;
+}
+
+// One line of Circles score above the list, linking to the Circles page.
+function coeLine() {
+  if (!S.coe.length) return '';
+  const { done } = coeScore();
+  const next = TIERS.find((t) => done < t.points);
+  return `<a class="coe-line" href="#circles"><b>Circles: ${done} of ${COE_TOTAL}</b> <span>· ${next ? `${esc(next.name)} at ${next.points}` : 'Gold reached'}</span></a>`;
 }
 
 function todoSidebar() {
@@ -91,6 +101,7 @@ function todoSidebar() {
         </select>
       </div>
       <div class="todos-body">
+        ${coeLine()}
         ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
           : '<p class="hint">Nothing to do here. Nice.</p>'}
         <button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
