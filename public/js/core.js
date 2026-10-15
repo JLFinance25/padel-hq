@@ -125,11 +125,12 @@ async function api(path, opts = {}) {
 }
 
 let lastData = '';
+// Returns true when the newest copy was loaded, false when it could not be.
 async function refresh(quiet) {
   try {
     const data = await api('/api/data');
     const raw = JSON.stringify(data) + todayKey(); // a new day repaints even if nothing else changed
-    if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
+    if (quiet && raw === lastData && S.loaded) return true; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
     const first = !S.loaded;
     S.events = data.events || []; S.tasks = data.tasks || []; S.links = data.links || []; S.coe = data.coe || [];
@@ -137,10 +138,12 @@ async function refresh(quiet) {
     S.loaded = true; S.loadError = null;
     renderTabs(); render(); // an open form is left alone: syncDrawer skips it
     if (drawerState) syncDrawer();
+    return true;
   } catch (e) {
     // Nothing on screen yet: say what went wrong where the board would be, with a way to try again.
-    if (!S.loaded) { S.loadError = e.message; render(); return; }
+    if (!S.loaded) { S.loadError = e.message; render(); return false; }
     if (!quiet) toast(e.message, true);
+    return false;
   }
 }
 
@@ -263,11 +266,15 @@ async function addTask(fields) {
   }
 }
 
-// What to do when a checklist change fails: say why, and drop the to-do if it is gone.
+// What to do when a checklist change fails. A 404 about the to-do means it is gone: drop it here and close its popup.
+// A 404 about one step means only that step is gone, so the list is just refreshed.
 function stepFailed(taskId, e, undo) {
-  if (e.status === 404 && /to-do/.test(e.message)) S.tasks = S.tasks.filter((x) => x.id !== taskId); else undo();
-  repaintAll();
-  toast(e.status === 404 && /to-do/.test(e.message) ? 'Someone deleted this to-do.' : "Didn't save: " + e.message, true);
+  const stepGone = e.status === 404 && /step/i.test(e.message);
+  const todoGone = e.status === 404 && !stepGone;
+  if (todoGone) S.tasks = S.tasks.filter((x) => x.id !== taskId); else undo();
+  if (todoGone && drawerState && drawerState.id === taskId) closeDrawer(); else repaintAll();
+  toast(todoGone ? 'Someone deleted this to-do.' : stepGone ? 'That step was removed.' : "Didn't save: " + e.message, true);
+  if (stepGone) refresh(true);
 }
 
 // Add a step at the end of the checklist.
@@ -310,15 +317,20 @@ async function tickStep(taskId, stepId) {
     return item;
   } catch (e) {
     stepFailed(taskId, e, () => { const cur = findItem('tasks', taskId); if (cur) putLocal('tasks', { ...cur, steps: mark(step) }); });
-    if (e.status === 404) refresh(true);
     throw e;
   }
 }
 
 // Replace the whole checklist with a shorter or re-ordered one (one step removed, or two swapped).
 // The server only accepts the steps exactly as saved, so this always starts from the newest copy.
-async function saveSteps(taskId, build) {
-  await refresh(true);
+let stepQueue = Promise.resolve(); // checklist rewrites go one after another, never overlapping
+function saveSteps(taskId, build) {
+  const run = stepQueue.then(() => saveStepsNow(taskId, build));
+  stepQueue = run.catch(() => {});
+  return run;
+}
+async function saveStepsNow(taskId, build) {
+  if (!(await refresh(true))) { toast("Couldn't check the latest list. Try again.", true); throw new Error('stale'); } // never act on an old copy
   const task = findItem('tasks', taskId);
   if (!task) { toast('Someone deleted this to-do.', true); throw new Error('gone'); }
   const before = stepsOf(task);

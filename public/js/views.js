@@ -29,13 +29,13 @@ function taskGroups(open) {
 
 // One calendar item on an office page: tap it for the popup. The certainty label keeps its status color.
 function officeEventRow(e) {
-  const st = e.status || (e.date ? 'internal' : 'nodate');
-  const label = Object.hasOwn(STATUSES, st) ? STATUSES[st] : st;
+  const st = e.status || (e.date ? '' : 'nodate'); // no status and a date: no label rather than a guess
+  const label = st && (Object.hasOwn(STATUSES, st) ? STATUSES[st] : st);
   let when = 'No date yet';
   if (e.date) when = fmt(e.date, { weekday: 'short', month: 'short', day: 'numeric' }) + (e.end && e.end > e.date ? ' to ' + fmt(e.end, { month: 'short', day: 'numeric' }) : '');
   return `<li class="cal-item"><button class="todo-open" data-open="events:${esc(e.id)}">
     <span class="todo-title">${esc(e.title)}</span>
-    <span class="todo-sub">${esc(when)} · <span class="pill s-${esc(st)}">${esc(label)}</span></span>
+    <span class="todo-sub">${esc(when)}${st ? ` · <span class="pill s-${esc(st)}">${esc(label)}</span>` : ''}</span>
   </button></li>`;
 }
 
