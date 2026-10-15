@@ -8,7 +8,7 @@ export function useTempData() {
   process.chdir(dir); // _lib.js picks its data file from the working folder when it is first imported
   for (const k of ['KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'VERCEL']) delete process.env[k];
   process.env.CLASS_PASSCODE = 'class-test';
-  process.env.OWNER_PASSCODE = 'owner-test';
+  delete process.env.OWNER_PASSCODE;
   return dir;
 }
 

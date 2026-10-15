@@ -5,8 +5,7 @@
 
 function showLogin() {
   if (drawerState) { drawerState = null; $('#drawer').hidden = true; $('#drawer').classList.remove('editing'); $('#scrim').hidden = true; $('#app').inert = false; document.body.style.overflow = ''; }
-  S.owner = false; S.trash = [];
-  paintOwnerTag();
+  S.trash = [];
   $('#app').hidden = true;
   $('#login').hidden = false;
   $('#login-name').value = S.me || '';
@@ -22,10 +21,9 @@ $('#login-form').addEventListener('submit', async (e) => {
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Checking…';
   try {
-    const res = await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
     $('#login-pass').value = '';
     S.me = name; store('phq_me', name);
-    S.owner = !!res.owner;
     startApp();
   } catch (ex) {
     err.textContent = ex.message;
@@ -38,9 +36,9 @@ function startApp() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   S.loadError = null;
-  lastData = ''; // the first load always repaints (owner and class views differ)
-  paintOwnerTag(); renderNameBar();
-  route(); // also picks the page named in the address, if this login is allowed to see it
+  lastData = ''; // the first load always repaints
+  renderNameBar();
+  route(); // also picks the page named in the address
   refresh();
 }
 
@@ -48,31 +46,6 @@ $('#logout-btn').addEventListener('click', async () => {
   await api('/api/login', { method: 'DELETE' }).catch(() => {});
   showLogin();
 });
-
-// ---------- Owner mode ----------
-
-// The yellow "Owner mode" tag and the button to leave it (only while in owner mode).
-function paintOwnerTag() {
-  $('#owner-slot').innerHTML = S.owner
-    ? `<span class="owner-pill">Owner mode</span><button class="btn btn-ghost leave-owner" type="button" data-act="leave-owner" aria-label="Leave owner mode">${icon('eye')}<span class="leave-text">Leave owner mode</span></button>`
-    : '';
-}
-
-// Back to the class view, still logged in.
-async function leaveOwner() {
-  try { await api('/api/login?owner=1', { method: 'DELETE' }); } catch (e) { toast(e.message, true); return; }
-  S.owner = false; S.trash = [];
-  fallBackFromOwnerView();
-  renderTabs(); render(); paintOwnerTag();
-  toast("You're in the class view now.");
-}
-
-// If the page open right now is owner-only (or class-only), go home.
-function fallBackFromOwnerView() {
-  if (isView(S.view)) return;
-  S.view = 'calendar';
-  history.replaceState(null, '', '#calendar');
-}
 
 // ---------- First name ----------
 // Check-offs show who did them. Someone logged in before names existed gets a small bar to add one.
@@ -86,25 +59,6 @@ function saveName(form) {
   S.me = name; store('phq_me', name);
   renderNameBar();
   toast('Thanks, ' + name);
-}
-
-// ---------- Suggest form ----------
-// The form is cleared before sending so a second click can't send it twice.
-async function sendSuggestion(form) {
-  const f = form.elements;
-  const title = f.title.value.trim();
-  if (!title) { f.title.setCustomValidity('Write what needs to be done.'); f.title.reportValidity(); f.title.setCustomValidity(''); return; }
-  if (!f.dept.value) { f.dept.setCustomValidity('Pick a department.'); f.dept.reportValidity(); f.dept.setCustomValidity(''); return; }
-  if (!f.due.checkValidity()) { f.due.reportValidity(); return; }
-  const data = { title, dept: f.dept.value, due: f.due.value || null, desc: f.desc.value.trim() };
-  form.reset();
-  try {
-    await createItem('suggestions', { id: newId(title), createdAt: new Date().toISOString(), ...data });
-    toast('Sent. It will show up once it is approved.');
-  } catch {
-    S.draft = data; // put back what they typed
-    if (S.view === 'suggest') render();
-  }
 }
 
 // ---------- Focus that survives repaints ----------
@@ -126,14 +80,13 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-// The owner doesn't send suggestions (they add to-dos directly) and only the owner sees Recently deleted.
-const isView = (v) => v === 'calendar' || (v === 'suggest' && !S.owner) || (v === 'deleted' && S.owner) || DEPTS.some((d) => d.id === v);
+// Old #suggest links are not a page any more, so they land on the calendar.
+const isView = (v) => v === 'calendar' || v === 'deleted' || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
   const tab = (id, label, ic = '') => `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''}>${ic ? icon(ic) : ''}${esc(label)}</a>`;
   $('#tabs').innerHTML =
     tab('calendar', 'Calendar', 'grid') +
-    (S.owner ? '' : tab('suggest', 'Suggest a to-do', 'plus')) +
     '<span class="tab-sep" aria-hidden="true"></span>' +
     DEPTS.map((d) => tab(d.id, d.name)).join('');
 }
@@ -141,7 +94,7 @@ function renderTabs() {
 function route() {
   const v = (location.hash.slice(1) || 'calendar').split('/')[0];
   const next = isView(v) ? v : 'calendar';
-  if (!isView(v) && location.hash) history.replaceState(null, '', '#calendar'); // an address this login can't see
+  if (!isView(v) && location.hash) history.replaceState(null, '', '#calendar'); // an address that isn't a page
   const changed = next !== S.view;
   if (changed && drawerState) closeDrawer();
   S.view = next;
@@ -159,21 +112,13 @@ function render() {
       : `<div class="load-msg" aria-busy="true"><p>Loading…</p></div>`;
     return;
   }
-  // Remember focus and anything half-typed in the suggest form, then repaint, then put them back.
+  // Remember focus, then repaint, then put it back.
   const fk = focusKey(document.activeElement);
-  const drafts = ['s-title', 's-dept', 's-due', 's-desc'].map((id) => {
-    const el = document.getElementById(id);
-    return el && el.value && { id, value: el.value };
-  }).filter(Boolean);
-  const sameView = render.lastView === S.view;
 
   if (S.view === 'calendar') main.innerHTML = viewHome();
-  else if (S.view === 'suggest') main.innerHTML = viewSuggest();
   else if (S.view === 'deleted') main.innerHTML = viewDeleted();
   else main.innerHTML = viewDept(S.view);
-  render.lastView = S.view;
 
-  if (sameView) for (const k of drafts) { const el = document.getElementById(k.id); if (el) el.value = k.value; }
   if (!drawerState) restoreFocus(fk);
 }
 
@@ -208,7 +153,6 @@ document.addEventListener('click', async (e) => {
     case 'today': S.month = startOfMonth(new Date()); render(); break;
     case 'open-day': openDay(el.dataset.day); break;
     case 'close': closeDrawerSafely(); break;
-    case 'leave-owner': leaveOwner(); break;
     case 'edit': startEdit(); break;
     case 'cancel-edit': cancelEdit(); break;
     case 'delete': deleteFromDrawer(); break;
@@ -242,8 +186,7 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('submit', (e) => {
   const kind = e.target.dataset.form;
-  if (kind === 'suggest') { e.preventDefault(); sendSuggestion(e.target); }
-  else if (kind === 'name') { e.preventDefault(); saveName(e.target); }
+  if (kind === 'name') { e.preventDefault(); saveName(e.target); }
   else if (kind === 'edit') { e.preventDefault(); saveDrawer(); }
 });
 
@@ -262,7 +205,6 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 (async function boot() {
   try {
     const s = await api('/api/login');
-    S.owner = !!(s.loggedIn && s.owner);
     if (s.loggedIn) startApp(); else showLogin();
   } catch {
     showLogin();

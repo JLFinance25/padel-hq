@@ -1,4 +1,4 @@
-// The popup: one item's details, everything on one day, and (owner only) the edit form.
+// The popup: one item's details, everything on one day, and the edit form.
 'use strict';
 
 // { collection, id } for an item, or { day } for a day. While a form is open it also has
@@ -25,9 +25,8 @@ function openDrawer(collection, id) {
   showPopup();
 }
 
-// Owner only: a blank form. preset has starting values, like { dept } or { date }.
+// A blank form. preset has starting values, like { dept } or { date }.
 function openNew(collection, preset = {}) {
-  if (!S.owner) return;
   if (!drawerState) openerKey = focusKey(document.activeElement);
   drawerState = { collection, id: null, editing: true, defaults: preset, saving: false };
   paintDrawer();
@@ -94,7 +93,7 @@ function paintDrawer() {
         ${list.length ? `<ul class="day-list">${list.map((e) => `<li><button class="chip kind-${esc(e.kind)}" data-open="events:${esc(e.id)}">${esc(e.title)}</button></li>`).join('')}</ul>` : '<p class="hint">Nothing on the calendar this day.</p>'}
         ${due.length ? `<h3 class="todo-group">To-dos due this day (${due.length})</h3><ul class="todo-list">${due.map((t) => todoRow(t)).join('')}</ul>` : ''}
       </div>
-      ${S.owner ? `<div class="drawer-foot"><button class="btn" type="button" data-act="add-on-day" data-day="${esc(k)}">${icon('plus')}Add on this day</button></div>` : ''}`;
+      <div class="drawer-foot"><button class="btn" type="button" data-act="add-on-day" data-day="${esc(k)}">${icon('plus')}Add on this day</button></div>`;
     return;
   }
 
@@ -127,13 +126,13 @@ function paintDrawer() {
       ${item.source ? `<p class="meta">Source: ${safeLink(item.source)}</p>` : ''}
     </div>
     <div class="drawer-foot">
-      ${S.owner ? `<button class="btn btn-danger foot-left" type="button" data-act="delete">${icon('trash')}Delete</button>` : ''}
+      <button class="btn btn-danger foot-left" type="button" data-act="delete">${icon('trash')}Delete</button>
       ${collection === 'tasks' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : ''}
-      ${S.owner ? `<button class="btn" type="button" data-act="edit">${icon('edit')}Edit</button>` : '<button class="btn" data-act="close">Close</button>'}
+      <button class="btn" type="button" data-act="edit">${icon('edit')}Edit</button>
     </div>`;
 }
 
-// ---------- The edit form (owner only) ----------
+// ---------- The edit form ----------
 
 const optionsHtml = (pairs, val) => pairs.map(([o, l]) => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(l)}</option>`).join('');
 const deptOptions = (val) => optionsHtml(DEPTS.map((d) => [d.id, d.name]), val);
@@ -172,7 +171,7 @@ function paintForm() {
   const d = $('#drawer');
   d.classList.add('editing');
   if (item && !drawerState.snap) drawerState.snap = { ...item };
-  // A new item starts blank (events get no "how sure" until the owner picks one).
+  // A new item starts blank (events get no "how sure" until the person picks one).
   const start = collection === 'events' ? { kind: 'event', dept: 'firm' } : { dept: 'firm' };
   const base = drawerState.snap || { ...start, ...defaults };
   const word = collection === 'events' ? 'calendar item' : 'to-do';
@@ -208,7 +207,7 @@ if (window.visualViewport) {
 
 function startEdit() {
   const item = currentItem();
-  if (!S.owner || !item) return;
+  if (!item) return;
   drawerState.editing = true; drawerState.snap = { ...item }; drawerState.saving = false;
   paintDrawer();
   $('#drawer [name=title]')?.focus();
@@ -224,7 +223,7 @@ function cancelEdit() {
 
 async function deleteFromDrawer() {
   const item = currentItem();
-  if (!S.owner || !item) return;
+  if (!item) return;
   if (!confirm(`Delete '${item.title}'? You can put it back from Recently deleted for 30 days.`)) return;
   const { collection, id } = drawerState;
   closeDrawer();

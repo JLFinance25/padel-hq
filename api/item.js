@@ -1,12 +1,11 @@
-import { send, readJson, query, requireLogin, isOwner, checkItem, getItem, saveItem, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
+import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
 
-// Who may change what (checked here, not just hidden in the page):
-//   Everyone logged in: check a to-do or Circles item off or back on, add a to-do, and add or tick checklist steps.
-//   Owner (owner passcode): add, edit and delete to-dos, calendar items, Circles items and links,
-//   and put deleted things back. Deleted things wait in "trash" for 30 days.
-const NOPE = 'Only the CEO can change that. You can check things off, add to-dos and add checklist steps.';
-const OWNER_LISTS = ['tasks', 'events', 'coe', 'links'];
-const KNOWN_LISTS = [...OWNER_LISTS, 'suggestions']; // suggestions are no longer accepted, but the name is still a real list
+// Who may change what: everyone logged in (with the class passcode) can do all of it.
+//   Add, edit and delete to-dos, calendar items, Circles items and links (Circles items can't be deleted).
+//   Check to-dos and Circles items off, add to-dos, add and tick checklist steps, and put deleted things back.
+// The safety net: every change logs the person's typed first name, and deleted things wait in "trash"
+// for 30 days where anyone can put them back. Suggestions are turned off; old ones stay in the database.
+const LISTS = ['tasks', 'events', 'coe', 'links'];
 
 // Ticking a Circles item records who did it and when; un-ticking clears that.
 function stampDone(collection, before, item, who) {
@@ -16,7 +15,7 @@ function stampDone(collection, before, item, who) {
   return rest;
 }
 
-// Classmate (or owner) operations on a to-do. Each one reads the newest saved task first,
+// Operations on a to-do. Each one reads the newest saved task first,
 // so ticking one step never wipes out another person's tick.
 async function taskOp(body, who, res) {
   const { op } = body;
@@ -80,16 +79,14 @@ async function taskOp(body, who, res) {
 export default async function handler(req, res) {
   try {
     if (!requireLogin(req, res)) return;
-    const owner = isOwner(req);
 
     if (req.method === 'DELETE') {
       const q = query(req);
       const collection = q.get('collection');
       const id = q.get('id');
-      if (!owner) return send(res, 403, { error: NOPE });
       if (collection === 'coe') return send(res, 403, { error: "Circles items mirror VE's list, so they can't be deleted. Edit it instead." });
-      if (!OWNER_LISTS.includes(collection) || !id) return send(res, 400, { error: 'Bad request.' });
-      const entry = await moveToTrash(collection, id, q.get('who') || 'CEO');
+      if (!LISTS.includes(collection) || !id) return send(res, 400, { error: 'Bad request.' });
+      const entry = await moveToTrash(collection, id, cleanWho(q.get('who')));
       if (!entry) return send(res, 404, { error: 'That was already deleted.' });
       return send(res, 200, { ok: true, trash: entry });
     }
@@ -99,7 +96,6 @@ export default async function handler(req, res) {
     const who = cleanWho(body.who);
 
     if (body.op === 'restore') {
-      if (!owner) return send(res, 403, { error: NOPE });
       const back = await restoreFromTrash(String(body.trashId || ''), who);
       if (back === 'exists') return send(res, 409, { error: 'Something with the same id is already back on the list.' });
       if (!back) return send(res, 404, { error: 'That was already restored or cleared.' });
@@ -111,21 +107,10 @@ export default async function handler(req, res) {
     const { collection, item: sent } = body;
     if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
     // Unknown list names are refused before storage is touched.
-    if (!KNOWN_LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
+    if (collection === 'suggestions') return send(res, 400, { error: 'Suggestions are turned off. Add the to-do directly.' });
+    if (!LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
 
-    if (!owner) {
-      // Check a to-do or a Circles item off or back on, and nothing else.
-      const keys = Object.keys(sent).filter((k) => k !== 'id');
-      if (!['tasks', 'coe'].includes(collection) || keys.length !== 1 || keys[0] !== 'done' || typeof sent.done !== 'boolean') return send(res, 403, { error: NOPE });
-      const before = await getItem(collection, sent.id);
-      if (!before) return send(res, 404, { error: 'That item was removed.' });
-      const next = stampDone(collection, before, { ...before, done: sent.done }, who);
-      const saved = await saveItem(collection, next, who, sent.done ? 'checked off' : 'unchecked');
-      return send(res, 200, { item: saved });
-    }
-
-    // Owner: add or edit.
-    if (!OWNER_LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
+    // Add or edit.
     const before = await getItem(collection, sent.id);
     if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
     if (!body.patch && before) return send(res, 409, { error: 'That item already exists.' });

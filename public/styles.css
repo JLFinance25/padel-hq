@@ -92,11 +92,6 @@ select.compact { width: auto; }
 .tab[aria-current="page"] .count { background: rgba(255,255,255,.2); color: #fff; }
 .tab-sep { width: 1px; background: var(--line); margin: 8px 6px; flex: none; }
 
-/* Owner mode tag and the button to leave it */
-.owner-slot { display: inline-flex; align-items: center; gap: 4px; }
-.owner-pill { display: inline-flex; align-items: center; background: var(--yellow); color: var(--ink); border-radius: 99px; padding: 3px 12px; font-size: 15px; font-weight: 700; white-space: nowrap; }
-.leave-owner { font-size: 16px; }
-
 /* Asks for a first name when someone logged in before names existed */
 .name-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; padding: 10px 24px; background: var(--yellow-soft); border-bottom: 1px solid var(--line); }
 .name-bar label { font-size: 16px; color: var(--ink); flex: 1 1 260px; }
@@ -322,9 +317,6 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
   .drawer-foot .btn { flex: 1; }
   .drawer-foot .foot-left { margin-right: 0; flex: 1 1 100%; order: 2; }
   .form-error { text-align: left; flex-basis: 100%; }
-  .leave-text { display: none; }
-  .leave-owner { padding: 8px; min-width: 48px; }
-  .owner-pill { font-size: 14px; padding: 3px 10px; }
   .name-bar { padding: 10px 16px; }
   .trash-row { flex-direction: column; align-items: stretch; }
   .cal-nav { flex-wrap: wrap; }

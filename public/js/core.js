@@ -26,13 +26,12 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isPhone = () => window.innerWidth <= 680;
 
 const S = {
-  events: [], tasks: [], suggestions: [], links: [],
+  events: [], tasks: [], links: [],
   view: 'calendar', loaded: false,
   month: startOfMonth(new Date()), sel: null,
   todoTeam: 'all', // the to-do sidebar's department filter
   me: store('phq_me') || '', // first name, so check-offs show who did them
-  owner: false,    // true while logged in with the owner passcode
-  trash: [],       // recently deleted items (the server only sends these to the owner)
+  trash: [],       // recently deleted items (anyone logged in can put them back)
 };
 
 // ---------- Small helpers ----------
@@ -110,9 +109,8 @@ async function refresh(quiet) {
     if (quiet && raw === lastData && S.loaded) return; // nothing changed: don't repaint (keeps focus, scroll and open menus)
     lastData = raw;
     const first = !S.loaded;
-    S.events = data.events || []; S.tasks = data.tasks || []; S.suggestions = data.suggestions || []; S.links = data.links || [];
+    S.events = data.events || []; S.tasks = data.tasks || []; S.links = data.links || [];
     S.trash = data.trash || [];
-    if (S.owner && !('trash' in data)) ownerLost(); // the owner login ran out since the last load
     S.loaded = true; S.loadError = null;
     renderTabs(); render(); // an open form is left alone: syncDrawer skips it
     if (drawerState) syncDrawer();
@@ -140,7 +138,7 @@ async function createItem(collection, item) {
   } catch (e) {
     S[collection] = S[collection].filter((x) => x.id !== item.id);
     renderTabs(); render();
-    if (e.status === 403 && S.owner) ownerLost(); else toast("Didn't save: " + e.message, true);
+    toast("Didn't save: " + e.message, true);
     throw e;
   }
 }
@@ -159,13 +157,12 @@ async function updateItem(collection, id, fields) {
   } catch (e) {
     if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
     renderTabs(); render();
-    if (e.status === 403 && S.owner) ownerLost();
-    else toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
+    toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
     throw e;
   }
 }
 
-// Owner only: delete goes to Recently deleted, with Undo in the message.
+// Delete goes to Recently deleted, with Undo in the message.
 async function removeItem(collection, id) {
   const before = findItem(collection, id);
   S[collection] = S[collection].filter((x) => x.id !== id);
@@ -178,12 +175,12 @@ async function removeItem(collection, id) {
   } catch (e) {
     if (before && e.status !== 404) putLocal(collection, before); // a 404 means it is already gone, so leave it gone
     renderTabs(); render();
-    if (e.status === 403) ownerLost(); else toast("Didn't delete: " + e.message, true);
+    toast("Didn't delete: " + e.message, true);
     throw e;
   }
 }
 
-// Owner only: put something from Recently deleted back exactly as it was.
+// Put something from Recently deleted back exactly as it was.
 async function restoreItem(trashId) {
   try {
     const { item } = await api('/api/item', { method: 'POST', body: JSON.stringify({ op: 'restore', trashId, who: S.me }) });
@@ -194,19 +191,10 @@ async function restoreItem(trashId) {
     toast('Put back');
     return item;
   } catch (e) {
-    if (e.status === 403) ownerLost(); else toast("Didn't put it back: " + e.message, true);
+    toast("Didn't put it back: " + e.message, true);
     if (e.status === 404 || e.status === 409) refresh(true);
     throw e;
   }
-}
-
-// The server stopped treating this device as the owner (for example the owner login ran out).
-function ownerLost() {
-  S.owner = false;
-  fallBackFromOwnerView();
-  renderTabs(); render(); paintOwnerTag();
-  if (drawerState && !drawerIsEditing()) paintDrawer(); // an open popup loses its owner buttons
-  toast('Owner mode ended on this device. Log out and back in with the owner passcode.' + (drawerIsEditing() ? ' Your typed text is still here.' : ''), true);
 }
 
 // Check off or un-check, with an Undo button in the message.

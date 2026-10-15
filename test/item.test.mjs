@@ -10,10 +10,18 @@ const T1 = { id: 'task-one', dept: 'finance', title: 'Test task', due: '2026-11-
 const E1 = { id: 'event-one', dept: 'firm', title: 'Test event', date: '2026-11-05', kind: 'deadline', status: 'projected' };
 const fresh = () => seed({ tasks: { [T1.id]: T1 }, events: { [E1.id]: E1 }, coe: { c1: { id: 'c1', dept: 'firm', title: 'Circles item', points: 2, period: 1, done: false } } });
 const classC = await login(loginRoute, 'class-test');
-const ownerC = await login(loginRoute, 'owner-test');
 const post = (cookie, body) => call(item, { method: 'POST', body, cookie });
 
-test('classmate can check off a task, and the log shows their name', async () => {
+test('not logged in gets 401 on data and item', async () => {
+  fresh();
+  assert.equal((await call(data)).statusCode, 401);
+  assert.equal((await post('', { collection: 'tasks', item: { id: 'task-one', done: true }, patch: true })).statusCode, 401);
+  assert.equal((await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one' })).statusCode, 401);
+  assert.equal((await post('', { op: 'restore', trashId: 'tasks:task-one' })).statusCode, 401);
+  assert.equal(readDb().tasks['task-one'].title, 'Test task');
+});
+
+test('anyone logged in can check off a task, and the log shows their name', async () => {
   fresh();
   const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', done: true }, patch: true, who: 'Test Person' });
   assert.equal(r.statusCode, 200);
@@ -21,38 +29,33 @@ test('classmate can check off a task, and the log shows their name', async () =>
   assert.equal(readDb().log[0].who, 'Test Person');
 });
 
-test('classmate can no longer send a suggestion', async () => {
-  fresh();
+test('the suggestion box is turned off, and old suggestions stay untouched', async () => {
+  seed({ suggestions: { 'sug-old': { id: 'sug-old', title: 'Old idea', dept: 'firm' } } });
   const r = await post(classC, { collection: 'suggestions', item: { id: 'sug-1', title: 'Idea', dept: 'firm' }, who: 'Test Person' });
-  assert.equal(r.statusCode, 403);
+  assert.equal(r.statusCode, 400);
+  assert.equal(r.body.error, 'Suggestions are turned off. Add the to-do directly.');
   assert.equal(readDb().suggestions['sug-1'], undefined);
+  assert.equal(readDb().suggestions['sug-old'].title, 'Old idea');
 });
 
-test('classmate cannot edit, add events or delete', async () => {
+test('anyone logged in can add, edit and delete a task', async () => {
   fresh();
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Changed' }, patch: true })).statusCode, 403);
-  assert.equal((await post(classC, { collection: 'events', item: { ...E1, id: 'new-ev' } })).statusCode, 403);
-  assert.equal((await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one', cookie: classC })).statusCode, 403);
-});
-
-test('owner can add, edit and delete a task', async () => {
-  fresh();
-  const add = await post(ownerC, { collection: 'tasks', item: { id: 'task-two', dept: 'sales', title: 'New one', done: false }, who: 'CEO' });
+  const add = await post(classC, { collection: 'tasks', item: { id: 'task-two', dept: 'sales', title: 'New one', done: false }, who: 'Test Person' });
   assert.equal(add.statusCode, 200);
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-two', dept: 'sales', title: 'Again' } })).statusCode, 409);
-  const edit = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed' }, patch: true, who: 'CEO' });
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-two', dept: 'sales', title: 'Again' } })).statusCode, 409);
+  const edit = await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed' }, patch: true, who: 'Test Person' });
   assert.equal(edit.body.item.title, 'Renamed');
   assert.equal(edit.body.item.due, '2026-11-02'); // untouched fields kept
-  const del = await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one&who=CEO', cookie: ownerC });
+  const del = await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one&who=Test%20Person', cookie: classC });
   assert.equal(del.statusCode, 200);
   assert.equal(readDb().tasks['task-one'], undefined);
   assert.equal(readDb().trash['tasks:task-one'].item.title, 'Renamed');
 });
 
-test('owner can restore from Recently deleted', async () => {
+test('anyone logged in can restore from Recently deleted', async () => {
   fresh();
-  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
-  const r = await post(ownerC, { op: 'restore', trashId: 'events:event-one', who: 'CEO' });
+  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: classC });
+  const r = await post(classC, { op: 'restore', trashId: 'events:event-one', who: 'Test Person' });
   assert.equal(r.statusCode, 200);
   assert.equal(readDb().events['event-one'].title, 'Test event');
   assert.equal(readDb().trash['events:event-one'], undefined);
@@ -60,31 +63,41 @@ test('owner can restore from Recently deleted', async () => {
 
 test('calendar items need a "how sure" label', async () => {
   fresh();
-  const r = await post(ownerC, { collection: 'events', item: { id: 'ev-x', dept: 'firm', title: 'No label', date: '2026-12-01', kind: 'deadline' } });
+  const r = await post(classC, { collection: 'events', item: { id: 'ev-x', dept: 'firm', title: 'No label', date: '2026-12-01', kind: 'deadline' } });
   assert.equal(r.statusCode, 400);
   assert.match(r.body.error, /how sure/i);
 });
 
 test('Circles items cannot be deleted', async () => {
   fresh();
-  const r = await call(item, { method: 'DELETE', url: '/api/item?collection=coe&id=c1', cookie: ownerC });
+  const r = await call(item, { method: 'DELETE', url: '/api/item?collection=coe&id=c1', cookie: classC });
   assert.equal(r.statusCode, 403);
 });
 
-test('trash is only sent to the owner', async () => {
+test('trash is sent to everyone logged in, with who deleted it', async () => {
   fresh();
-  await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one', cookie: ownerC });
-  assert.equal((await call(data, { cookie: classC })).body.trash, undefined);
-  assert.equal((await call(data, { cookie: ownerC })).body.trash.length, 1);
+  await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one&who=Test%20Person', cookie: classC });
+  const t = (await call(data, { cookie: classC })).body.trash;
+  assert.equal(t.length, 1);
+  assert.equal(t[0].deletedBy, 'Test Person');
+});
+
+test('links can be added, edited and deleted too', async () => {
+  fresh();
+  const L = { id: 'link-1', dept: 'firm', title: 'Class folder', url: 'https://example.com', section: 'link' };
+  assert.equal((await post(classC, { collection: 'links', item: L, who: 'Test Person' })).statusCode, 200);
+  assert.equal((await post(classC, { collection: 'links', item: { id: 'link-1', title: 'Renamed' }, patch: true })).body.item.title, 'Renamed');
+  assert.equal((await call(item, { method: 'DELETE', url: '/api/item?collection=links&id=link-1', cookie: classC })).statusCode, 200);
+  assert.ok(readDb().trash['links:link-1']);
 });
 
 test('trash older than 30 days is pruned on the next delete', async () => {
-  seed({ tasks: { [T1.id]: T1 }, trash: { 'tasks:old': { id: 'tasks:old', collection: 'tasks', item: { id: 'old' }, title: 'old', deletedAt: '2026-01-01T00:00:00.000Z', deletedBy: 'CEO' } } });
-  await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one', cookie: ownerC });
+  seed({ tasks: { [T1.id]: T1 }, trash: { 'tasks:old': { id: 'tasks:old', collection: 'tasks', item: { id: 'old' }, title: 'old', deletedAt: '2026-01-01T00:00:00.000Z', deletedBy: 'Test Person' } } });
+  await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one', cookie: classC });
   assert.equal(readDb().trash['tasks:old'], undefined);
 });
 
-test('classmate can tick a Circles item and it records who and when', async () => {
+test('anyone logged in can tick a Circles item and it records who and when', async () => {
   fresh();
   const r = await post(classC, { collection: 'coe', item: { id: 'c1', done: true }, patch: true, who: 'Test Person' });
   assert.equal(r.statusCode, 200);
@@ -103,40 +116,29 @@ test('un-ticking a Circles item clears who and when', async () => {
   assert.equal(c.doneBy, undefined);
 });
 
-test('classmate still cannot edit a Circles item', async () => {
+test('anyone logged in can edit a Circles item', async () => {
   fresh();
-  assert.equal((await post(classC, { collection: 'coe', item: { id: 'c1', points: 9 }, patch: true })).statusCode, 403);
-});
-
-test('owner ticking a Circles item records who and when too', async () => {
-  fresh();
-  const r = await post(ownerC, { collection: 'coe', item: { id: 'c1', done: true }, patch: true, who: 'CEO' });
+  const r = await post(classC, { collection: 'coe', item: { id: 'c1', points: 9 }, patch: true, who: 'Test Person' });
   assert.equal(r.statusCode, 200);
-  assert.equal(readDb().coe.c1.doneBy, 'CEO');
+  assert.equal(readDb().coe.c1.points, 9);
 });
 
 test('an unknown list name is refused with 400 before any lookup', async () => {
   fresh();
   assert.equal((await post(classC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
   assert.equal((await post(classC, { collection: '__proto__', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
-  assert.equal((await post(ownerC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
+  assert.equal((await post(classC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
 });
 
-test('classmate cannot restore from Recently deleted', async () => {
-  fresh();
-  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
-  assert.equal((await post(classC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 403);
-  assert.ok(readDb().trash['events:event-one']);
-});
 
 test('restore says 409 when something with that id is already back', async () => {
   fresh();
-  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
-  assert.equal((await post(ownerC, { collection: 'events', item: E1 })).statusCode, 200);
-  assert.equal((await post(ownerC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 409);
+  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: classC });
+  assert.equal((await post(classC, { collection: 'events', item: E1 })).statusCode, 200);
+  assert.equal((await post(classC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 409);
 });
 
-test('classmate can add a task in any office', async () => {
+test('add-task can add a task in any office', async () => {
   fresh();
   const r = await post(classC, { op: 'add-task', item: { id: 'new-task', title: 'Draft the catalog', dept: 'sales', due: '2026-11-10', owner: 'Test Person', done: true, addedBy: 'Faker' }, who: 'Test Person' });
   assert.equal(r.statusCode, 200);
@@ -144,7 +146,7 @@ test('classmate can add a task in any office', async () => {
   assert.deepEqual([t.done, t.addedBy, t.steps.length, t.dept], [false, 'Test Person', 0, 'sales']);
 });
 
-test('classmate can add a step and tick it without wiping other ticks', async () => {
+test('anyone can add a step and tick it without wiping other ticks', async () => {
   fresh();
   await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'First' }, who: 'A' });
   await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's2', text: 'Second' }, who: 'B' });
@@ -155,16 +157,10 @@ test('classmate can add a step and tick it without wiping other ticks', async ()
   assert.equal(steps[1].doneBy, 'B');
 });
 
-test('classmate cannot move or delete steps', async () => {
-  fresh();
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [] }, patch: true })).statusCode, 403);
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr' }, patch: true })).statusCode, 403);
-});
-
 test('new office ids are accepted and unknown ones refused', async () => {
   fresh();
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'hr-1', dept: 'hr', title: 'Payroll records' } })).statusCode, 200);
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'x-1', dept: 'nowhere', title: 'X' } })).statusCode, 400);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'hr-1', dept: 'hr', title: 'Payroll records' } })).statusCode, 200);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'x-1', dept: 'nowhere', title: 'X' } })).statusCode, 400);
 });
 
 test('a step with no text is refused', async () => {
@@ -175,9 +171,9 @@ test('a step with no text is refused', async () => {
 test('every office id works, and the old racquets and apparel ones still do', async () => {
   fresh();
   for (const dept of ['ceo', 'ops', 'finance', 'marketing', 'sales', 'tech', 'hr', 'firm', 'racquets', 'apparel']) {
-    assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'o-' + dept, dept, title: 'T' } })).statusCode, 200, dept);
+    assert.equal((await post(classC, { collection: 'tasks', item: { id: 'o-' + dept, dept, title: 'T' } })).statusCode, 200, dept);
   }
-  const bad = await post(ownerC, { collection: 'tasks', item: { id: 'o-bad', dept: 'nowhere', title: 'T' } });
+  const bad = await post(classC, { collection: 'tasks', item: { id: 'o-bad', dept: 'nowhere', title: 'T' } });
   assert.match(bad.body.error, /Pick one of the offices/);
 });
 
@@ -212,15 +208,15 @@ test('un-ticking a step clears who and when', async () => {
 test('a task holds at most 30 steps and each step needs a good id', async () => {
   fresh();
   const many = Array.from({ length: 31 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: many }, patch: true })).statusCode, 400);
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'bad id!', text: 'X', done: false }] }, patch: true })).statusCode, 400);
-  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'ok-1', text: 'X' }] }, patch: true })).statusCode, 400);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: many }, patch: true })).statusCode, 400);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'bad id!', text: 'X', done: false }] }, patch: true })).statusCode, 400);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'ok-1', text: 'X' }] }, patch: true })).statusCode, 400);
 });
 
-test('owner can replace steps wholesale and move a task to another office', async () => {
+test('anyone can replace steps wholesale and move a task to another office', async () => {
   fresh();
   await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' } });
-  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr', steps: [{ id: 'n1', text: 'New', done: false }] }, patch: true });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr', steps: [{ id: 'n1', text: 'New', done: false }] }, patch: true });
   assert.equal(r.statusCode, 200);
   const t = readDb().tasks['task-one'];
   assert.deepEqual([t.dept, t.steps.length, t.steps[0].id], ['hr', 1, 'n1']);
@@ -230,7 +226,7 @@ test('a full checklist (30 long steps, long names, long description) still saves
   fresh();
   const name = 'N'.repeat(40);
   const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'T'.repeat(200), done: i === 0, addedBy: name, ...(i === 0 ? { doneBy: name, doneAt: '2026-11-01T10:00:00.000Z' } : {}) }));
-  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', desc: 'D'.repeat(2000), steps }, patch: true });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', desc: 'D'.repeat(2000), steps }, patch: true });
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   const t = await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's5', done: true, who: name });
   assert.equal(t.statusCode, 200, JSON.stringify(t.body));
@@ -240,7 +236,7 @@ test('a full checklist (30 long steps, long names, long description) still saves
 test('adding a 31st step says the checklist is full', async () => {
   fresh();
   const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
-  await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps }, patch: true });
+  await post(classC, { collection: 'tasks', item: { id: 'task-one', steps }, patch: true });
   const r = await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 'extra', text: 'One more' } });
   assert.equal(r.statusCode, 400);
   assert.match(r.body.error, /checklist is full \(30 steps\)/);
@@ -261,10 +257,10 @@ test('a second tick on an already-ticked step keeps the first ticker', async () 
 test('duplicate step ids and non-text names on steps are refused', async () => {
   fresh();
   const dup = [{ id: 'a', text: 'X', done: false }, { id: 'a', text: 'Y', done: false }];
-  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: dup }, patch: true });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: dup }, patch: true });
   assert.equal(r.statusCode, 400);
   assert.match(r.body.error, /same id/);
   for (const bad of [{ addedBy: 5 }, { doneBy: {} }, { doneAt: 7 }]) {
-    assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'a', text: 'X', done: false, ...bad }] }, patch: true })).statusCode, 400);
+    assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'a', text: 'X', done: false, ...bad }] }, patch: true })).statusCode, 400);
   }
 });

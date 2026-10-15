@@ -1,39 +1,5 @@
-// The other pages: Suggest a to-do, and one resource page per department.
+// The other pages: one resource page per department, and Recently deleted.
 'use strict';
-
-// ---------- Suggest a to-do ----------
-
-function viewSuggest() {
-  const dr = S.draft || {}; // a suggestion whose send failed, typed back in
-  S.draft = null;
-  const waiting = [...S.suggestions].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  return `
-    <div class="page-head">
-      <div><h1>Suggest a to-do</h1>
-      <p>Write down anything the firm needs to do. It goes to the CEO first, and shows up on the calendar and to-do list once it's approved.</p></div>
-    </div>
-    <section class="panel">
-      <form class="form" data-form="suggest" novalidate>
-        <label for="s-title">What needs to be done?
-          <input id="s-title" type="text" name="title" value="${esc(dr.title)}" required maxlength="160" autocomplete="off"></label>
-        <label for="s-dept">Which department is it for?
-          <select id="s-dept" name="dept" required>
-            <option value="" ${dr.dept ? '' : 'selected'} disabled>Choose a department</option>
-            ${DEPTS.map((d) => `<option value="${d.id}" ${dr.dept === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}
-          </select></label>
-        <label for="s-due">When is it due? <span class="hint">(if you know)</span>
-          <input id="s-due" type="date" name="due" value="${esc(dr.due)}" min="${DATE_MIN}" max="${DATE_MAX}"></label>
-        <label for="s-desc">Any details? <span class="hint">(optional)</span>
-          <textarea id="s-desc" name="desc" maxlength="2000">${esc(dr.desc)}</textarea></label>
-        <div><button class="btn btn-primary" type="submit">Send suggestion</button></div>
-      </form>
-    </section>
-    <h2 class="group-title">Waiting for approval (${waiting.length})</h2>
-    ${waiting.length ? `<ul class="ruled">${waiting.map((s) => `<li class="rrow no-tick">
-        <span><span class="r-title">${esc(s.title)}</span>
-        <span class="r-desc">${esc(dept(s.dept).name)}${s.due ? ' · due ' + esc(fmt(s.due)) : ''} · sent ${esc(ago(s.createdAt))}</span></span>
-      </li>`).join('')}</ul>` : '<p class="hint">Nothing waiting right now.</p>'}`;
-}
 
 // ---------- Department pages: quick links, learning material, and the team's to-dos ----------
 
@@ -64,7 +30,7 @@ function viewDept(id) {
     ${todos.length ? `<ul class="todo-list boxed">${todos.map((t) => todoRow(t, false)).join('')}</ul>` : '<p class="hint">No open to-dos.</p>'}`;
 }
 
-// ---------- Recently deleted (owner only) ----------
+// ---------- Recently deleted (everyone logged in) ----------
 
 const TRASH_DAYS = 30;
 const TRASH_KIND = { tasks: 'To-do', events: 'Calendar item', links: 'Link', coe: 'Circles item' };

@@ -5,10 +5,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// suggestions = to-dos classmates sent in, waiting for the CEO to approve.
+// suggestions = the old suggestion box. It is turned off, but what was saved there is kept.
 // links = each department's quick links and learning material.
 // coe and posts are older lists the site no longer shows; their saved data is kept.
-// trash = deleted items, kept 30 days so the owner can put them back.
+// trash = deleted items, kept 30 days so anyone can put them back.
 export const COLLECTIONS = ['events', 'tasks', 'suggestions', 'links', 'coe', 'posts', 'trash'];
 const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
@@ -102,19 +102,6 @@ function cookieValid(req, name, key) {
 }
 
 export const isLoggedIn = (req) => cookieValid(req, 'phq_session', secret());
-
-// Owner mode (the CEO only): a second passcode, OWNER_PASSCODE, set in Vercel. It adds its own cookie, so
-// changing OWNER_PASSCODE logs out only the owner's devices. No OWNER_PASSCODE means owner mode is off.
-function ownerSecret() {
-  const pass = process.env.OWNER_PASSCODE;
-  const base = secret();
-  if (!pass || !pass.trim() || !base || pass.trim() === String(process.env.CLASS_PASSCODE).trim()) return null;
-  return crypto.createHash('sha256').update(base).update('|owner|' + pass).digest();
-}
-export const ownerReady = () => !!ownerSecret();
-export const ownerPasscodeMatches = (given) => ownerReady() && matches(given, process.env.OWNER_PASSCODE);
-export const ownerCookie = (req) => makeCookie(req, 'phq_owner', ownerSecret());
-export const isOwner = (req) => isLoggedIn(req) && cookieValid(req, 'phq_owner', ownerSecret());
 
 // Returns true if the request may continue; otherwise it has already answered.
 export function requireLogin(req, res) {
@@ -301,7 +288,7 @@ export async function listItems(collection) {
 
 const TRASH_DAYS = 30;
 
-// Deleting keeps a copy in "trash" for 30 days so the owner can put it back. Older copies are cleared here.
+// Deleting keeps a copy in "trash" for 30 days so anyone can put it back. Older copies are cleared here.
 export async function moveToTrash(collection, id, who) {
   const item = await getItem(collection, id);
   if (!item) return null;
