@@ -3,19 +3,10 @@
 
 // ---------- Login ----------
 
-// Where a day falls in the school year, as a percent: the lock screen's ball sits at today.
-const SEASON = { start: '2026-09-01', end: '2027-06-15' };
-function pos(s) {
-  const a = parseDay(SEASON.start), b = parseDay(SEASON.end), d = parseDay(s);
-  return Math.max(0, Math.min(100, ((d - a) / (b - a)) * 100));
-}
-
 function showLogin() {
   if (drawerState) { drawerState = null; $('#drawer').hidden = true; $('#scrim').hidden = true; $('#app').inert = false; document.body.style.overflow = ''; }
   $('#app').hidden = true;
   $('#login').hidden = false;
-  $('.route-line').style.setProperty('--at', pos(todayKey()).toFixed(1) + '%'); // the ball sits where today falls in the season
-  $('#login-name').value = S.me;
   setTimeout(() => $('#login-pass').focus(), 30);
 }
 
@@ -27,24 +18,18 @@ $('#login-form').addEventListener('submit', async (e) => {
   btn.disabled = true; btn.textContent = 'Checking…';
   try {
     await api('/api/login', { method: 'POST', body: JSON.stringify({ passcode: $('#login-pass').value }) });
-    S.me = $('#login-name').value.trim().slice(0, 40); store('phq_me', S.me);
     $('#login-pass').value = '';
     startApp();
   } catch (ex) {
     err.textContent = ex.message;
   } finally {
-    btn.disabled = false; btn.textContent = 'Open the board';
+    btn.disabled = false; btn.textContent = 'Log in';
   }
 });
-
-function paintMe() {
-  $('#me-btn span').textContent = S.me || 'Set your name';
-}
 
 function startApp() {
   $('#login').hidden = true;
   $('#app').hidden = false;
-  paintMe();
   S.loadError = null;
   render();
   refresh();
@@ -55,39 +40,22 @@ $('#logout-btn').addEventListener('click', async () => {
   showLogin();
 });
 
-// Name box (instead of the browser's prompt)
-$('#me-btn').addEventListener('click', () => {
-  const dlg = $('#name-dialog');
-  $('#name-input').value = S.me;
-  dlg.showModal();
-  $('#name-input').select();
-});
-$('#name-cancel').addEventListener('click', () => $('#name-dialog').close());
-$('#name-form').addEventListener('submit', (e) => {
-  const n = $('#name-input').value.trim().slice(0, 40);
-  if (!n) { e.preventDefault(); $('#name-input').focus(); return; }
-  S.me = n; store('phq_me', n); paintMe(); render();
-  toast(`Your changes will show as ${n}`);
-});
-
-// The Add page's form. The form is cleared before saving so a second click can't add it twice;
-// the team stays picked for the next one.
-async function addTask(form) {
+// ---------- Suggest form ----------
+// The form is cleared before sending so a second click can't send it twice.
+async function sendSuggestion(form) {
   const f = form.elements;
   const title = f.title.value.trim();
-  if (!title) { f.title.setCustomValidity('Give it a title.'); f.title.reportValidity(); f.title.setCustomValidity(''); return; }
+  if (!title) { f.title.setCustomValidity('Write what needs to be done.'); f.title.reportValidity(); f.title.setCustomValidity(''); return; }
+  if (!f.dept.value) { f.dept.setCustomValidity('Pick a department.'); f.dept.reportValidity(); f.dept.setCustomValidity(''); return; }
   if (!f.due.checkValidity()) { f.due.reportValidity(); return; }
-  const data = { title, dept: f.dept.value, due: f.due.value || null, owner: f.owner.value.trim(), desc: f.desc.value.trim() };
-  S.addTeam = store('phq_add_team', data.dept);
-  for (const k of ['title', 'due', 'owner', 'desc']) f[k].value = '';
+  const data = { title, dept: f.dept.value, due: f.due.value || null, desc: f.desc.value.trim() };
+  form.reset();
   try {
-    await createItem('tasks', { id: newId(title), done: false, createdAt: new Date().toISOString(), ...data });
-    toast(`Added to ${dept(data.dept).name}`);
-    $('#add-title')?.focus();
+    await createItem('suggestions', { id: newId(title), createdAt: new Date().toISOString(), ...data });
+    toast('Sent. It will show up once it is approved.');
   } catch {
-    // The save failed: put back what they typed (the next repaint of the Add page fills it in).
-    S.addDraft = data;
-    if (S.view === 'add') { render(); $('#add-title')?.focus(); }
+    S.draft = data; // put back what they typed
+    if (S.view === 'suggest') render();
   }
 }
 
@@ -110,73 +78,51 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-const isView = (v) => ['board', 'month', 'add'].includes(v) || DEPTS.some((d) => d.id === v);
+const isView = (v) => ['calendar', 'suggest'].includes(v) || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
-  const tab = (id, label, ic = '', count = 0, title = '') =>
-    `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''} ${title ? `title="${esc(title)}"` : ''}>${ic ? icon(ic) : ''}${esc(label)}${count ? `<span class="count">${count}</span>` : ''}</a>`;
+  const tab = (id, label, ic = '') => `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''}>${ic ? icon(ic) : ''}${esc(label)}</a>`;
   $('#tabs').innerHTML =
-    tab('board', 'Board', 'board') +
-    tab('month', 'Month', 'grid') +
+    tab('calendar', 'Calendar', 'grid') +
+    tab('suggest', 'Suggest a to-do', 'plus') +
     '<span class="tab-sep" aria-hidden="true"></span>' +
-    DEPTS.map((d) => {
-      const open = S.tasks.filter((t) => t.dept === d.id && !t.done).length;
-      return tab(d.id, d.name, '', open, `${open} open to-dos`);
-    }).join('') +
-    '<span class="tab-sep" aria-hidden="true"></span>' +
-    tab('add', 'Add to-do', 'plus', 0, 'Add a to-do for any team');
+    DEPTS.map((d) => tab(d.id, d.name)).join('');
 }
 
 function route() {
-  const v = (location.hash.slice(1) || 'board').split('/')[0];
-  const next = isView(v) ? v : 'board';
+  const v = (location.hash.slice(1) || 'calendar').split('/')[0];
+  const next = isView(v) ? v : 'calendar';
   const changed = next !== S.view;
   if (changed && drawerState) closeDrawer();
   S.view = next;
   renderTabs(); render();
   if (changed) { window.scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); }
-  if (changed) enterMain();
   $('#tabs [aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-}
-
-// A new page rises in once. The class comes off right after, so background repaints never replay it.
-function enterMain() {
-  const m = $('#main');
-  m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter');
-  clearTimeout(enterMain.t); enterMain.t = setTimeout(() => m.classList.remove('enter'), 600);
 }
 window.addEventListener('hashchange', route);
 
 function render() {
   const main = $('#main');
   if (!S.loaded) {
-    const head = `<div class="board-head"><h1 class="board-title"><span class="ball" aria-hidden="true"></span>Departures</h1></div>`;
     main.innerHTML = S.loadError
-      ? `<div class="board board-error" role="alert">${head}<div class="board-empty"><p class="err-title">The board didn't load</p><p class="err-msg">${esc(S.loadError)}</p><button class="btn btn-sm" data-act="retry">Try again</button></div></div>`
-      : `<div class="board" aria-busy="true">${head}<p class="sr">Loading the board…</p><ol class="rows skeleton" aria-hidden="true">${'<li class="dep"><span></span><span class="sk sk-when"></span><span class="sk sk-in"></span><span class="sk sk-title"></span></li>'.repeat(6)}</ol></div>`;
+      ? `<div class="load-msg" role="alert"><h1>The site didn't load</h1><p class="error">${esc(S.loadError)}</p><button class="btn" data-act="retry">Try again</button></div>`
+      : `<div class="load-msg" aria-busy="true"><p>Loading…</p></div>`;
     return;
   }
-  // Remember focus and anything half-typed on the Add page, then repaint, then put them back.
+  // Remember focus and anything half-typed in the suggest form, then repaint, then put them back.
   const fk = focusKey(document.activeElement);
-  const drafts = ['add-title', 'add-dept', 'add-due', 'add-owner', 'add-desc'].map((id) => {
+  const drafts = ['s-title', 's-dept', 's-due', 's-desc'].map((id) => {
     const el = document.getElementById(id);
-    return el && { id, value: el.value, at: el.selectionStart };
-  }).filter((k) => k && k.value);
-  const viewBefore = render.lastView;
+    return el && el.value && { id, value: el.value };
+  }).filter(Boolean);
+  const sameView = render.lastView === S.view;
 
-  if (S.view === 'board') main.innerHTML = viewBoard();
-  else if (S.view === 'month') main.innerHTML = viewMonth();
-  else if (S.view === 'add') main.innerHTML = viewAdd();
-  else main.innerHTML = viewTeam(S.view);
+  if (S.view === 'calendar') main.innerHTML = viewHome();
+  else if (S.view === 'suggest') main.innerHTML = viewSuggest();
+  else main.innerHTML = viewDept(S.view);
   render.lastView = S.view;
 
-  for (const k of drafts) {
-    if (viewBefore !== S.view) continue; // only a repaint of the same page keeps what was typed
-    const el = document.getElementById(k.id);
-    if (!el) continue;
-    el.value = k.value;
-    if (document.activeElement === el || fk === '#' + k.id) { el.focus({ preventScroll: true }); try { el.setSelectionRange(k.at, k.at); } catch { /* date inputs */ } }
-  }
+  if (sameView) for (const k of drafts) { const el = document.getElementById(k.id); if (el) el.value = k.value; }
   if (!drawerState) restoreFocus(fk);
 }
 
@@ -194,87 +140,45 @@ document.addEventListener('click', async (e) => {
   if (tick) {
     e.preventDefault();
     const [c, id] = tick.dataset.tick.split(':');
-    toggleDone(c, id).catch(() => {});
+    toggleDone(c, id).then(() => { if (drawerState) paintDrawer(); }).catch(() => {});
     return;
   }
   const el = e.target.closest('[data-act]');
-  // Clicking the empty part of a month day picks that day.
   if (!el) {
-    const day = e.target.closest('.day[data-day]');
-    if (day) pickDay(day.dataset.day, true);
+    // Tapping the empty part of a calendar day opens that day.
+    const day = e.target.closest('.day');
+    const num = day && day.querySelector('[data-day]');
+    if (num) openDay(num.dataset.day);
     return;
   }
-  const act = el.dataset.act;
-  switch (act) {
-    case 'board-full': S.boardFull = !S.boardFull; render(); break;
-    case 'toggle-late': S.showLate = !S.showLate; render(); break;
-    case 'take': {
-      const it = currentItem();
-      if (!it) break;
-      if (!S.me) { toast('Set your name at the top right first', true); break; }
-      const owner = it.owner ? `${it.owner}, ${S.me}` : S.me;
-      try { await updateItem('tasks', it.id, { owner }); paintDrawer(); toast(`Assigned to ${S.me}`); ($('#drawer [data-act=edit]') || $('#drawer [data-act=drawer-tick]'))?.focus(); } catch { /* shown */ }
-      break;
-    }
-    case 'to-nodate':
-      e.preventDefault();
-      if (location.hash !== '#month') location.hash = 'month'; else render();
-      setTimeout(() => { const n = $('#nodate'); if (n) { n.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth' }); n.focus({ preventScroll: true }); } }, 80);
-      break;
+  switch (el.dataset.act) {
     case 'prev': shiftMonth(-1); break;
     case 'next': shiftMonth(1); break;
-    case 'today': S.month = startOfMonth(new Date()); S.sel = todayKey(); render(); break;
-    case 'pick-day': pickDay(el.dataset.day, true); break;
-    case 'new-event': openDrawer('events', null, true); break;
-    case 'new-task': openDrawer('tasks', null, true); break;
-    case 'toggle-done': S.showDone = !S.showDone; render(); break;
-    case 'close': closeDrawerSafely(); break;
-    case 'edit': if (!drawerState) break; drawerState.editing = true; drawerState.snap = null; paintDrawer(); setTimeout(() => $('#drawer [name=title]')?.focus(), 30); break;
-    case 'cancel-edit': if (!drawerState) break; if (drawerIsDirty() && !confirm('Discard your unsaved changes?')) break; drawerState.editing = false; drawerState.snap = null; paintDrawer(); $('#drawer [data-act=edit]')?.focus(); break;
-    case 'skip': $('#main').focus(); $('#main').scrollIntoView(); break;
+    case 'today': S.month = startOfMonth(new Date()); render(); break;
+    case 'open-day': openDay(el.dataset.day); break;
+    case 'close': closeDrawer(); break;
     case 'retry': S.loadError = null; render(); refresh(); break;
-    case 'save': break; // the Save button submits the form; see the submit handler
-    case 'delete': { const it = currentItem(); if (it && await removeItem(drawerState.collection, it)) closeDrawer(); break; }
     case 'drawer-tick': {
       const st = drawerState;
-      if (!st) break;
-      try { await toggleDone(st.collection, st.id); if (drawerState === st) { paintDrawer(); $('#drawer [data-act=drawer-tick]')?.focus(); } } catch { /* shown */ }
+      if (!st || !st.id) break;
+      try { await toggleDone(st.collection, st.id); if (drawerState === st) paintDrawer(); } catch { /* shown */ }
       break;
     }
   }
 });
 
 document.addEventListener('change', (e) => {
-  const act = e.target.dataset?.act;
-  if (act === 'month-team') { S.monthTeam = e.target.value; render(); }
-  if (act === 'month-tasks') { S.monthTasks = e.target.checked; render(); }
+  if (e.target.dataset?.act === 'todo-team') { S.todoTeam = e.target.value; render(); }
 });
 
-document.addEventListener('submit', async (e) => {
-  const kind = e.target.dataset.form;
-  if (kind === 'add-task') { e.preventDefault(); addTask(e.target); }
-  if (e.target.id === 'edit-form') { e.preventDefault(); saveDrawer(); }
+document.addEventListener('submit', (e) => {
+  if (e.target.dataset.form === 'suggest') { e.preventDefault(); sendSuggestion(e.target); }
 });
 
-$('#scrim').addEventListener('click', closeDrawerSafely);
+$('#scrim').addEventListener('click', closeDrawer);
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawerState && !$('#name-dialog').open) { e.preventDefault(); closeDrawerSafely(); return; }
-  if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return; // leave browser shortcuts (like Back) alone
-  if (drawerState || S.view !== 'month') return;
-  const active = document.activeElement;
-  // On a day: arrows move between days (up/down = a week), crossing into the next month when needed.
-  if (active?.classList.contains('dnum')) {
-    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
-    if (step) {
-      e.preventDefault();
-      const d = parseDay(active.dataset.day); d.setDate(d.getDate() + step);
-      pickDay(dayKey(d), true);
-    }
-    return;
-  }
-  const typing = /INPUT|TEXTAREA|SELECT/.test(active?.tagName || '');
-  if (!typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); shiftMonth(e.key === 'ArrowRight' ? 1 : -1); }
+  if (e.key === 'Escape' && drawerState) { e.preventDefault(); closeDrawer(); }
 });
 
 // Stay in sync with everyone else: refresh every 30 seconds and whenever the tab comes back into view.
@@ -284,8 +188,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && !$
 // ---------- Start ----------
 
 (async function boot() {
-  const v = (location.hash.slice(1) || 'board').split('/')[0];
-  S.view = isView(v) ? v : 'board';
+  const v = (location.hash.slice(1) || 'calendar').split('/')[0];
+  S.view = isView(v) ? v : 'calendar';
   try {
     const s = await api('/api/login');
     if (s.loggedIn) startApp(); else showLogin();

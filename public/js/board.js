@@ -1,101 +1,107 @@
-// Home: one departures board with every to-do and every deadline or event, sorted by date.
+// Home: a month calendar like a phone's calendar app, with the to-do list in a sidebar.
 'use strict';
 
-const boardRows = () => (isPhone() ? 6 : 12);
+// ---------- Calendar ----------
 
-function boardItems() {
-  const t = todayKey();
-  const out = [];
+// Calendar items on a given day (a multi-day item shows on every day it covers).
+function eventsByDay(from, to) {
+  const byDay = {};
   for (const e of S.events) {
-    if (!e.date || (e.end || e.date) < t || e.kind === 'dayoff') continue;
-    out.push({ c: 'events', it: e, date: e.date < t && e.end ? t : e.date });
+    if (!e.date) continue;
+    const end = e.end && e.end > e.date ? e.end : e.date;
+    const a = e.date > from ? e.date : from;
+    const b = end < to ? end : to;
+    for (let d = parseDay(a); a <= b && dayKey(d) <= b; d.setDate(d.getDate() + 1)) (byDay[dayKey(d)] ||= []).push(e);
   }
-  for (const k of S.tasks) if (!k.done && k.due) out.push({ c: 'tasks', it: k, date: k.due });
-  return out.sort((a, b) => a.date.localeCompare(b.date) || (a.c === b.c ? 0 : a.c === 'events' ? -1 : 1));
+  for (const k of Object.keys(byDay)) byDay[k].sort((x, y) => (x.kind === 'dayoff' ? -1 : 0) - (y.kind === 'dayoff' ? -1 : 0) || x.title.localeCompare(y.title));
+  return byDay;
 }
 
-function rowStatus(c, it, date) {
-  const n = daysUntil(date);
-  const ongoing = c === 'events' && it.end && it.date < todayKey() && it.end >= todayKey();
-  if (c !== 'events' && n < 0) return ['overdue', 'Overdue'];
-  if (ongoing) return ['today', 'On now'];
-  if (n === 0) return ['today', 'Today'];
-  if (n <= 3) return ['soon', 'Due soon'];
-  return ['', '']; // how sure a date is shows in the detail panel, not on the board
-}
-
-function depRow(r, i) {
-  const { c, it, date } = r;
-  const n = daysUntil(date);
-  const [st, label] = rowStatus(c, it, date);
-  const inText = n < 0 ? 'Late' : n === 0 ? 'Now' : String(n);
-  const d = dept(it.dept);
-  const sub = c === 'tasks' ? [it.owner ? esc(it.owner) : 'Unassigned', esc(d.name)]
-    : [esc(KINDS[it.kind] || it.kind || 'Event'), it.end && it.end !== it.date ? 'to ' + fmt(it.end, { month: 'short', day: 'numeric' }) : ''];
-  const aria = `${fmt(date)}, ${relDays(n)}: ${it.title}. ${d.name}.${label ? ' ' + label + '.' : ''}`;
-  return `<li class="dep">
-    <button class="dep-open" data-open="${c}:${esc(it.id)}" aria-label="${esc(aria)}" title="${esc(it.title)}"></button>
-    <span class="lamp" aria-hidden="true"></span>
-    <span class="cell-when">${flap('w' + it.id, boardDate(date), i * 28)}<span class="in-m" aria-hidden="true">${esc(n > 0 ? n + (n === 1 ? ' day' : ' days') : inText)}</span></span>
-    <span class="cell-in ${n > 14 ? 'far' : ''}">${flap('i' + it.id, inText, i * 28 + 120)}</span>
-    <span class="cell-title">
-      ${c !== 'events' ? `<button class="tick" role="checkbox" aria-checked="false" aria-label="Mark done: ${esc(it.title)}" data-tick="${c}:${esc(it.id)}">${icon('check')}</button>` : ''}
-      <span class="title-text"><span class="title-main">${esc(it.title)}</span>
-        <span class="title-sub">${sub.filter(Boolean).join(' · ')}</span></span>
-    </span>
-    <span class="cell-plat">${esc(d.code)}</span>
-    <span class="cell-status${st ? ' st-' + st : ''}">${label ? `<span class="dot" aria-hidden="true"></span>${flap('s' + it.id, label, i * 28 + 220)}` : ''}</span>
-  </li>`;
-}
-
-// All late to-dos fold into one row so they don't push the real deadlines off the board.
-function lateRow(late) {
-  return `<li class="dep late-row">
-    <button class="dep-open" data-act="toggle-late" aria-expanded="${S.showLate}" aria-label="${late.length} late to-dos. ${S.showLate ? 'Hide them' : 'Show them'}."></button>
-    <span class="lamp" aria-hidden="true"></span>
-    <span class="cell-when"><span class="late-count">${late.length}</span></span>
-    <span class="cell-in">Late</span>
-    <span class="cell-title"><span class="title-text"><span class="title-main">Late to-dos</span><span class="title-sub">${S.showLate ? 'Showing them below' : 'Past their due date and not checked off. Tap to see them.'}</span></span></span>
-    <span class="cell-plat"></span>
-    <span class="cell-status st-overdue"><span class="dot" aria-hidden="true"></span>${S.showLate ? 'Hide' : 'Show'}</span>
-  </li>`;
-}
-
-function clockHtml() {
-  const now = new Date();
-  const day = now.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short' }).replace(',', '');
-  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M/, '');
-  const [h, m] = time.split(':');
-  // Hours and minutes flip on their own; the colon between them ticks like a station clock.
-  return `<small>${esc(day.toUpperCase())}</small><span class="clock-time">${flap('clock-h', h)}<span class="colon" aria-hidden="true">:</span>${flap('clock-m', m)}</span>`;
-}
-
-function viewBoard() {
-  const all = boardItems();
-  const late = all.filter((r) => r.c !== 'events' && r.date < todayKey());
-  const rest = all.filter((r) => !(r.c !== 'events' && r.date < todayKey()));
-  const limit = boardRows();
-  const shown = S.boardFull ? rest : rest.slice(0, limit);
-  const undated = S.events.filter((e) => !e.date).length + S.tasks.filter((t) => !t.due && !t.done).length;
-  const rows = [
-    ...(late.length ? [lateRow(late)] : []),
-    ...(S.showLate ? late.map((r, i) => depRow(r, i)) : []),
-    ...shown.map((r, i) => depRow(r, i + 1)),
-  ];
-  setTimeout(() => { flapArmed = true; }, 0);
-  return `<section class="board" aria-labelledby="board-title">
-      <div class="board-head">
-        <h1 class="board-title" id="board-title"><span class="ball" aria-hidden="true"></span>Departures</h1>
-        <div class="clock" id="clock" aria-label="Current date and time">${clockHtml()}</div>
+function calendarHtml() {
+  const first = S.month;
+  const start = new Date(first); start.setDate(1 - first.getDay());
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const cells = Math.ceil((first.getDay() + last.getDate()) / 7) * 7;
+  const gridEnd = new Date(start); gridEnd.setDate(start.getDate() + cells - 1);
+  const byDay = eventsByDay(dayKey(start), dayKey(gridEnd));
+  const t = todayKey();
+  let grid = '';
+  for (let i = 0; i < cells; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = dayKey(d);
+    const list = byDay[k] || [];
+    const off = list.some((e) => e.kind === 'dayoff');
+    const label = `${fmt(k, { weekday: 'long', month: 'long', day: 'numeric' })}${list.length ? `, ${list.length} item${list.length > 1 ? 's' : ''}` : ''}`;
+    grid += `<div class="day${d.getMonth() !== first.getMonth() ? ' out' : ''}${k === t ? ' today' : ''}${off ? ' off' : ''}">
+      <button class="dnum" data-act="open-day" data-day="${k}" aria-label="${esc(label)}">${d.getDate()}</button>
+      ${list.slice(0, 3).map((e) => `<button class="chip kind-${esc(e.kind)}" data-open="events:${esc(e.id)}" title="${esc(e.title)}">${esc(e.title)}</button>`).join('')}
+      ${list.length > 3 ? `<button class="more" data-act="open-day" data-day="${k}">${list.length - 3} more</button>` : ''}
+      ${list.length ? `<span class="dots" aria-hidden="true">${list.slice(0, 3).map((e) => `<i class="kind-${esc(e.kind)}"></i>`).join('')}</span>` : ''}
+    </div>`;
+  }
+  return `<section class="cal" aria-label="Calendar">
+      <div class="cal-head">
+        <h1 class="cal-title"><b>${first.toLocaleDateString('en-US', { month: 'long' })}</b> ${first.getFullYear()}</h1>
+        <div class="cal-nav">
+          <button class="icon-btn round" data-act="prev" aria-label="Previous month">${icon('left')}</button>
+          <button class="btn btn-pill" data-act="today">Today</button>
+          <button class="icon-btn round" data-act="next" aria-label="Next month">${icon('right')}</button>
+        </div>
       </div>
-      <div class="board-cols" aria-hidden="true"><span></span><span>When</span><span>Days</span><span>To-do or deadline</span><span class="col-plat">Team</span><span></span></div>
-      ${rows.length ? `<ol class="rows">${rows.join('')}</ol>` : `<p class="board-empty">Nothing coming up. Add a to-do from the “Add to-do” tab.</p>`}
-      ${undated || rest.length > limit ? `<div class="board-foot"><span></span><div class="toolbar">
-        ${undated ? `<a class="btn btn-sm" href="#month" data-act="to-nodate">${undated} with no date yet</a>` : ''}
-        ${rest.length > limit ? `<button class="btn btn-sm" data-act="board-full">${S.boardFull ? 'Show less' : `Full board · ${rest.length - limit} more`}</button>` : ''}
-      </div></div>` : ''}
+      <div class="month">
+        <div class="dow" aria-hidden="true">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((x) => `<div>${x}</div>`).join('')}</div>
+        <div class="weeks">${grid}</div>
+      </div>
+      <div class="legend">${Object.entries(KINDS).map(([k, v]) => `<span><i class="kind-${k}"></i>${v}</span>`).join('')}</div>
     </section>`;
 }
 
-// Keep the clock ticking without repainting the board.
-setInterval(() => { const c = $('#clock'); if (c) c.innerHTML = clockHtml(); }, 20000);
+// ---------- To-do sidebar ----------
+
+function todoRow(t, showTeam = S.todoTeam === 'all') {
+  const n = daysUntil(t.due);
+  const cls = n !== null && n < 0 ? 'late' : n !== null && n <= 3 ? 'soon' : '';
+  const when = t.due ? (n < 0 ? `${fmt(t.due, { month: 'short', day: 'numeric' })} · ${-n === 1 ? '1 day' : -n + ' days'} late` : `${fmt(t.due)} · ${relDays(n)}`) : 'No date yet';
+  return `<li class="todo">
+    <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Mark done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
+    <button class="todo-open" data-open="tasks:${esc(t.id)}">
+      <span class="todo-title">${esc(t.title)}</span>
+      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(dept(t.dept).name)}` : ''}</span>
+    </button>
+  </li>`;
+}
+
+function todoSidebar() {
+  const open = S.tasks.filter((t) => !t.done && (S.todoTeam === 'all' || t.dept === S.todoTeam))
+    .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title));
+  const groups = [
+    ['Late', 'late', open.filter((t) => t.due && daysUntil(t.due) < 0)],
+    ['Next 7 days', '', open.filter((t) => t.due && daysUntil(t.due) >= 0 && daysUntil(t.due) <= 7)],
+    ['Later', '', open.filter((t) => t.due && daysUntil(t.due) > 7)],
+    ['No date yet', '', open.filter((t) => !t.due)],
+  ].filter((g) => g[2].length);
+  return `<aside class="todos" aria-labelledby="todo-title">
+      <div class="todos-head">
+        <h2 id="todo-title">To-do list</h2>
+        <label class="sr" for="todo-team">Department</label>
+        <select id="todo-team" data-act="todo-team">
+          <option value="all">All departments</option>
+          ${DEPTS.map((d) => `<option value="${d.id}" ${S.todoTeam === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="todos-body">
+        ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
+          : '<p class="hint">Nothing to do here. Nice.</p>'}
+        <a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>
+      </div>
+    </aside>`;
+}
+
+function viewHome() {
+  return `<div class="home">${calendarHtml()}${todoSidebar()}</div>`;
+}
+
+function shiftMonth(step) {
+  S.month = new Date(S.month.getFullYear(), S.month.getMonth() + step, 1);
+  render();
+}

@@ -4,22 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#14213B">
+  <meta name="theme-color" content="#FFFFFF">
   <title>Padel HQ</title>
-  <meta name="description" content="Our Virtual Enterprise firm's shared departures board, calendar and team to-do lists.">
+  <meta name="description" content="Our Virtual Enterprise firm's shared to-do list, calendar and team to-do lists.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23F0B429'/%3E%3Cpath d='M5 11c6 3 16 3 22 0M5 21c6-3 16-3 22 0' stroke='%23fff' stroke-width='2' fill='none'/%3E%3C/svg%3E">
-  <link rel="preload" href="fonts/big-shoulders-text.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
-<!--
-THESIS: The firm's year as a station departures board. Every deadline is a departure ranked by time, and anything that changed stays lit until you have seen it. It refuses the default month-grid-first team calendar.
-OWN-WORLD: Warm white paper ground, one deep navy board panel with warm white Big Shoulders letters in fixed flap cells, court green lamps for confirmed dates, ball yellow for new, boarding and alerts, Helvetica Neue for everything you read or type. Ruled rows, not cards.
-STORY: A classmate opens it between classes, sees what departs next and what is theirs, notices the lit rows and the pinned update, taps one, and checks it off.
-FIRST VIEWPORT: Pinned update strip on top, the Departures board filling the left two thirds, the Updates rail on the right with the post box first.
-FORM: Gate board fused from challenger vernacular-ephemera-boarding-pass-and-gate-board over assigned candidate 7; seed key 47fee569.
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
--->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
       <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
@@ -40,28 +31,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     </defs>
   </svg>
 
-  <!-- Lock screen: the class passcode, laid out like a boarding pass -->
+  <!-- Lock screen: the class passcode -->
   <section id="login" class="login" hidden>
-    <form id="login-form" class="pass" autocomplete="off">
-      <div class="pass-head">
-        <span class="ball" aria-hidden="true"></span>
-        <span class="wordmark">PADEL&nbsp;HQ</span>
-        <span class="pass-tag">Class pass</span>
-      </div>
-      <div class="pass-route">
-        <div><span class="seg-label">From</span><b class="flapword">SEP</b><span class="seg-sub">2026</span></div>
-        <span class="route-line" aria-hidden="true"><span class="ball"></span></span>
-        <div class="to"><span class="seg-label">To</span><b class="flapword">JUN</b><span class="seg-sub">2027</span></div>
-      </div>
-      <p class="pass-sub">The firm's to-dos and deadlines. Everyone in class sees the same thing.</p>
-      <div class="perf" aria-hidden="true"></div>
+    <form id="login-form" class="login-card" autocomplete="off">
+      <div class="login-brand"><span class="ball" aria-hidden="true"></span><span class="wordmark">PADEL&nbsp;HQ</span></div>
+      <p class="login-sub">Our firm's to-dos and deadlines. Everyone in class sees the same list.</p>
       <label class="field">Class passcode
-        <input id="login-pass" type="password" required autocomplete="current-password">
+        <input id="login-pass" type="password" required autocomplete="current-password" autocapitalize="off" spellcheck="false">
       </label>
-      <label class="field">Your first name <span class="hint">shows next to your changes</span>
-        <input id="login-name" type="text" maxlength="40" required autocomplete="given-name">
-      </label>
-      <button class="btn btn-primary btn-wide" type="submit">Open the board</button>
+      <button class="btn btn-primary btn-wide" type="submit">Log in</button>
       <p id="login-error" class="error" role="alert"></p>
     </form>
   </section>
@@ -75,8 +53,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <span class="working" title="The firm name is not picked yet">working name</span>
       </a>
       <div class="topbar-right">
-        <button id="me-btn" class="me" title="Change the name that shows next to your changes"><svg class="ic"><use href="#i-user"/></svg><span></span></button>
-        <button id="logout-btn" class="icon-btn" aria-label="Log out" title="Log out"><svg class="ic"><use href="#i-exit"/></svg></button>
+        <button id="logout-btn" class="btn btn-ghost" title="Log out"><svg class="ic"><use href="#i-exit"/></svg>Log out</button>
       </div>
     </header>
     <nav id="tabs" class="tabs" aria-label="Sections"></nav>
@@ -88,24 +65,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <aside id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawer-title"></aside>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- Your name, shown next to everything you change -->
-  <dialog id="name-dialog" class="name-dialog" aria-labelledby="name-title">
-    <form id="name-form" method="dialog">
-      <h2 id="name-title">Your first name</h2>
-      <p class="hint">Shows next to everything you add or change.</p>
-      <label class="sr" for="name-input">First name</label>
-      <input id="name-input" type="text" maxlength="40" autocomplete="given-name">
-      <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
-        <button class="btn" type="button" id="name-cancel">Cancel</button>
-        <button class="btn btn-primary" value="save">Save</button>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="js/core.js"></script>
-  <script src="js/board.js"></script>
-  <script src="js/views.js"></script>
-  <script src="js/drawer.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/core.js?v=2"></script>
+  <script src="js/board.js?v=2"></script>
+  <script src="js/views.js?v=2"></script>
+  <script src="js/drawer.js?v=2"></script>
+  <script src="js/main.js?v=2"></script>
 </body>
 </html>

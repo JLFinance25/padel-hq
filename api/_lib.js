@@ -5,8 +5,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// posts = the pinned announcements in the Updates panel.
-export const COLLECTIONS = ['events', 'tasks', 'coe', 'posts'];
+// suggestions = to-dos classmates sent in, waiting for the CEO to approve.
+// links = each department's quick links and learning material.
+// coe and posts are older lists the site no longer shows; their saved data is kept.
+export const COLLECTIONS = ['events', 'tasks', 'suggestions', 'links', 'coe', 'posts'];
 const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
@@ -141,7 +143,7 @@ export function checkItem(collection, item) {
     if (real.getUTCFullYear() !== y || real.getUTCMonth() !== m - 1 || real.getUTCDate() !== d) return `The ${word} isn't a real day.`;
     if (y < 2024 || y > 2030) return `The ${word} has to be between 2024 and 2030.`;
   }
-  for (const k of ['desc', 'source', 'owner', 'notes', 'short', 'by', 'createdAt']) {
+  for (const k of ['desc', 'source', 'owner', 'notes', 'short', 'by', 'createdAt', 'url', 'section']) {
     if (item[k] !== undefined && item[k] !== null && typeof item[k] !== 'string') return `“${k}” must be text.`;
   }
   if ('done' in item && typeof item.done !== 'boolean') return '“done” must be true or false.';
@@ -150,6 +152,8 @@ export function checkItem(collection, item) {
     if (collection === 'events' && item.kind !== undefined && !Object.hasOwn(ALLOWED.kind, item.kind)) return 'Unknown kind of calendar item.';
     if (collection === 'events' && item.status !== undefined && !Object.hasOwn(ALLOWED.status, item.status)) return 'Unknown date status.';
     if (collection === 'coe' && item.points !== undefined && typeof item.points !== 'number') return 'Points must be a number.';
+    if (collection === 'links' && (typeof item.url !== 'string' || !/^https:\/\//i.test(item.url))) return 'A link has to start with https://';
+    if (collection === 'links' && !['link', 'learn'].includes(item.section)) return 'A link goes under "link" or "learn".';
   }
   if (item.date && item.end && item.end < item.date) return 'The end date is before the start date.';
   return null;
@@ -217,29 +221,17 @@ function parseAll(hash) {
 export async function loadAll() {
   if (usingFile()) {
     const db = fileLoad();
-    return {
-      events: Object.values(db.events),
-      tasks: Object.values(db.tasks),
-      coe: Object.values(db.coe),
-      posts: Object.values(db.posts || {}),
-      log: db.log.slice(0, 100),
-    };
+    const out = Object.fromEntries(COLLECTIONS.map((c) => [c, Object.values(db[c] || {})]));
+    return { ...out, log: (db.log || []).slice(0, 100) };
   }
-  const [events, tasks, coe, posts, log] = await redis([
-    ['HGETALL', PREFIX + 'events'],
-    ['HGETALL', PREFIX + 'tasks'],
-    ['HGETALL', PREFIX + 'coe'],
-    ['HGETALL', PREFIX + 'posts'],
-    ['LRANGE', LOG_KEY, '0', '99'],
-  ]);
-  return {
-    events: parseAll(events),
-    tasks: parseAll(tasks),
-    coe: parseAll(coe),
-    posts: parseAll(posts),
-    log: (log || []).map((x) => { try { return JSON.parse(x); } catch { return null; } }).filter(Boolean),
-  };
+  const res = await redis([...COLLECTIONS.map((c) => ['HGETALL', PREFIX + c]), ['LRANGE', LOG_KEY, '0', '99']]);
+  const out = Object.fromEntries(COLLECTIONS.map((c, i) => [c, parseAll(res[i])]));
+  const log = res[COLLECTIONS.length];
+  return { ...out, log: (log || []).map((x) => { try { return JSON.parse(x); } catch { return null; } }).filter(Boolean) };
 }
+
+// Where the data is going, said plainly (for the owner's inbox tool).
+export const storageName = () => (usingFile() ? 'the test file on this computer (.data/db.json)' : 'the LIVE database');
 
 function logEntry(who, action, collection, title, id) {
   return { t: new Date().toISOString(), who: cleanWho(who), action, collection, title: String(title || '').slice(0, 120), id: id || null };
@@ -259,7 +251,7 @@ export async function saveItem(collection, item, who, action) {
     const db = fileLoad();
     db[collection] ||= {};
     db[collection][item.id] = item;
-    db.log.unshift(entry);
+    (db.log ||= []).unshift(entry);
     db.log = db.log.slice(0, LOG_KEEP);
     fileSave(db);
     return item;
@@ -277,7 +269,7 @@ export async function deleteItem(collection, id, who, title) {
   if (usingFile()) {
     const db = fileLoad();
     if (db[collection]) delete db[collection][id];
-    db.log.unshift(entry);
+    (db.log ||= []).unshift(entry);
     db.log = db.log.slice(0, LOG_KEEP);
     fileSave(db);
     return;
