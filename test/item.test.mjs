@@ -132,6 +132,18 @@ test('anyone logged in can edit a Circles item', async () => {
   assert.equal(readDb().coe.c1.points, 9);
 });
 
+test('Circles edits: points, period and bonus are checked', async () => {
+  fresh();
+  const edit = (fields) => post(classC, { collection: 'coe', item: { id: 'c1', ...fields }, patch: true, who: 'Test Person' });
+  for (const bad of [{ points: -50 }, { points: 2.5 }, { points: 21 }, { points: '2' }, { period: 9 }, { period: '1' }, { period: 'summer' }, { bonus: 'x' }]) {
+    assert.equal((await edit(bad)).statusCode, 400, JSON.stringify(bad));
+  }
+  assert.equal(readDb().coe.c1.points, 2); // nothing bad was saved
+  assert.equal((await edit({ points: 0, period: 'fall-bonus', bonus: true })).statusCode, 200);
+  assert.equal((await edit({ points: 20, period: 6, bonus: false })).statusCode, 200);
+  assert.equal(readDb().coe.c1.period, 6);
+});
+
 test('an unknown list name is refused with 400 before any lookup', async () => {
   fresh();
   assert.equal((await post(classC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);

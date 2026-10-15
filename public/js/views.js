@@ -43,7 +43,7 @@ function currentPeriodId() {
   return (hit || (t < numbered[0].starts ? numbered[0] : numbered[numbered.length - 1])).id;
 }
 
-// "Checked by Maya · Oct 15" for a ticked item.
+// "Checked by Alex · Oct 15" for a ticked item.
 function checkedBy(c) {
   if (!c.done) return '';
   const day = c.doneAt && !isNaN(new Date(c.doneAt)) ? new Date(c.doneAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
@@ -108,7 +108,7 @@ function viewCircles() {
       </div>
       <p class="coe-msg">${esc(msg)}</p>
       <p class="coe-bonus">Bonus ${bonus} of 4</p>
-      ${listed !== COE_TOTAL ? `<p class="coe-note">VE says the year is worth ${COE_TOTAL} points, but the items listed add up to ${listed}. We're asking Ms. Garrison.</p>` : ''}
+      ${listed !== COE_TOTAL ? `<p class="coe-note">VE says the year is worth ${COE_TOTAL} points, but the items listed add up to ${listed}. We're asking our teacher.</p>` : ''}
     </section>
     ${S.coe.length ? sections.map((x) => x.html).join('') : '<p class="empty"><b>The checklist is empty.</b>Nothing has been loaded yet.</p>'}`;
 }

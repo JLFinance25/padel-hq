@@ -166,7 +166,11 @@ export function checkItem(collection, item) {
     if (!Object.hasOwn(ALLOWED.dept, item.dept)) return 'Pick one of the offices.';
     if (collection === 'events' && item.kind !== undefined && !Object.hasOwn(ALLOWED.kind, item.kind)) return 'Unknown kind of calendar item.';
     if (collection === 'events' && item.status !== undefined && !Object.hasOwn(ALLOWED.status, item.status)) return 'Unknown date status.';
-    if (collection === 'coe' && item.points !== undefined && typeof item.points !== 'number') return 'Points must be a number.';
+    if (collection === 'coe') {
+      if (item.points !== undefined && !(Number.isInteger(item.points) && item.points >= 0 && item.points <= 20)) return 'Points must be a whole number from 0 to 20.';
+      if (item.period !== undefined && !([1, 2, 3, 4, 5, 6].includes(item.period) || item.period === 'fall-bonus' || item.period === 'spring-bonus')) return 'Pick one of the periods.';
+      if (item.bonus !== undefined && typeof item.bonus !== 'boolean') return '“bonus” must be true or false.';
+    }
     if (collection === 'links' && (typeof item.url !== 'string' || !/^https:\/\//i.test(item.url))) return 'A link has to start with https://';
     if (collection === 'links' && !['link', 'learn'].includes(item.section)) return 'A link goes under "link" or "learn".';
   }

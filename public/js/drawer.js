@@ -286,8 +286,9 @@ async function saveDrawer() {
     const pts = Number(f.points.value);
     if (f.points.value.trim() === '' || !Number.isInteger(pts) || pts < 0 || pts > 20) return formError(f.points, 'Points have to be a whole number from 0 to 20.');
     data.points = pts;
-    data.period = /^\d+$/.test(f.period.value) ? Number(f.period.value) : f.period.value;
-    data.bonus = !!(PERIODS.find((p) => String(p.id) === f.period.value) || {}).bonus;
+    const per = PERIODS.find((p) => String(p.id) === f.period.value); // keeps the id's own type: a number for 1 to 6, text for the bonus windows
+    data.period = per ? per.id : f.period.value;
+    data.bonus = !!(per && per.bonus);
     data.due = data.due || null;
   } else {
     data.due = data.due || null;
