@@ -47,3 +47,15 @@ test('owner passcode equal to class passcode never grants owner mode', async () 
   assert.equal(s.body.owner, false);
   process.env.OWNER_PASSCODE = saved;
 });
+
+test('a blank owner passcode never grants owner mode', async () => {
+  const saved = process.env.OWNER_PASSCODE;
+  try {
+    process.env.OWNER_PASSCODE = '   ';
+    const r = await call(loginRoute, { method: 'POST', body: { passcode: '' } });
+    assert.notEqual(r.statusCode === 200 && r.body.owner === true, true);
+    assert.equal(r.statusCode, 401);
+  } finally {
+    process.env.OWNER_PASSCODE = saved;
+  }
+});

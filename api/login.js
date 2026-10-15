@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') return send(res, 200, { loggedIn: isLoggedIn(req), owner: isOwner(req), ready: !!process.env.CLASS_PASSCODE });
     if (req.method === 'DELETE') {
-      if (query(req).get('owner')) return send(res, 200, { ok: true }, { 'Set-Cookie': [clearCookie('phq_owner')] });
+      if (query(req).get('owner') === '1') return send(res, 200, { ok: true }, { 'Set-Cookie': [clearCookie('phq_owner')] });
       // Also clears phq_officer, left over from when officers had their own passcode.
       return send(res, 200, { ok: true }, { 'Set-Cookie': [clearCookie(), clearCookie('phq_owner'), clearCookie('phq_officer')] });
     }

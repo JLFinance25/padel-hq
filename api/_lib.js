@@ -106,7 +106,7 @@ export const isLoggedIn = (req) => cookieValid(req, 'phq_session', secret());
 function ownerSecret() {
   const pass = process.env.OWNER_PASSCODE;
   const base = secret();
-  if (!pass || !base || pass.trim() === String(process.env.CLASS_PASSCODE).trim()) return null;
+  if (!pass || !pass.trim() || !base || pass.trim() === String(process.env.CLASS_PASSCODE).trim()) return null;
   return crypto.createHash('sha256').update(base).update('|owner|' + pass).digest();
 }
 export const ownerReady = () => !!ownerSecret();
