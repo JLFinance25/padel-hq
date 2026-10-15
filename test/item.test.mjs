@@ -11,6 +11,14 @@ const E1 = { id: 'event-one', dept: 'firm', title: 'Test event', date: '2026-11-
 const fresh = () => seed({ tasks: { [T1.id]: T1 }, events: { [E1.id]: E1 }, coe: { c1: { id: 'c1', dept: 'firm', title: 'Circles item', points: 2, period: 1, done: false } } });
 const classC = await login(loginRoute, 'class-test');
 const post = (cookie, body) => call(item, { method: 'POST', body, cookie });
+const del = (collection, id) => call(item, { method: 'DELETE', url: `/api/item?collection=${collection}&id=${id}&who=Test%20Person`, cookie: classC });
+const trashOf = (collection, id) => Object.values(readDb().trash).filter((t) => t.collection === collection && t.item.id === id);
+const withSteps = (steps, extra = {}) => seed({ tasks: { [T1.id]: { ...T1, steps, ...extra } } });
+const S3 = () => [
+  { id: 's1', text: 'One', done: true, addedBy: 'A', doneBy: 'A', doneAt: '2026-11-01T10:00:00.000Z' },
+  { id: 's2', text: 'Two', done: false, addedBy: 'B' },
+  { id: 's3', text: 'Three', done: false, addedBy: 'C' },
+];
 
 test('not logged in gets 401 on data and item', async () => {
   fresh();
@@ -46,19 +54,20 @@ test('anyone logged in can add, edit and delete a task', async () => {
   const edit = await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed' }, patch: true, who: 'Test Person' });
   assert.equal(edit.body.item.title, 'Renamed');
   assert.equal(edit.body.item.due, '2026-11-02'); // untouched fields kept
-  const del = await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one&who=Test%20Person', cookie: classC });
-  assert.equal(del.statusCode, 200);
+  const gone = await del('tasks', 'task-one');
+  assert.equal(gone.statusCode, 200);
   assert.equal(readDb().tasks['task-one'], undefined);
-  assert.equal(readDb().trash['tasks:task-one'].item.title, 'Renamed');
+  assert.equal(trashOf('tasks', 'task-one')[0].item.title, 'Renamed');
 });
 
 test('anyone logged in can restore from Recently deleted', async () => {
   fresh();
   await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: classC });
-  const r = await post(classC, { op: 'restore', trashId: 'events:event-one', who: 'Test Person' });
+  const [entry] = trashOf('events', 'event-one');
+  const r = await post(classC, { op: 'restore', trashId: entry.id, who: 'Test Person' });
   assert.equal(r.statusCode, 200);
   assert.equal(readDb().events['event-one'].title, 'Test event');
-  assert.equal(readDb().trash['events:event-one'], undefined);
+  assert.equal(readDb().trash[entry.id], undefined);
 });
 
 test('calendar items need a "how sure" label', async () => {
@@ -88,7 +97,7 @@ test('links can be added, edited and deleted too', async () => {
   assert.equal((await post(classC, { collection: 'links', item: L, who: 'Test Person' })).statusCode, 200);
   assert.equal((await post(classC, { collection: 'links', item: { id: 'link-1', title: 'Renamed' }, patch: true })).body.item.title, 'Renamed');
   assert.equal((await call(item, { method: 'DELETE', url: '/api/item?collection=links&id=link-1', cookie: classC })).statusCode, 200);
-  assert.ok(readDb().trash['links:link-1']);
+  assert.equal(trashOf('links', 'link-1').length, 1);
 });
 
 test('trash older than 30 days is pruned on the next delete', async () => {
@@ -135,7 +144,44 @@ test('restore says 409 when something with that id is already back', async () =>
   fresh();
   await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: classC });
   assert.equal((await post(classC, { collection: 'events', item: E1 })).statusCode, 200);
-  assert.equal((await post(classC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 409);
+  assert.equal((await post(classC, { op: 'restore', trashId: trashOf('events', 'event-one')[0].id })).statusCode, 409);
+});
+
+test('delete, recreate with the same id, delete again: both copies stay in Recently deleted', async () => {
+  fresh();
+  await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed first' }, patch: true });
+  await del('tasks', 'task-one');
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr', title: 'Second life' }, who: 'Test Person' })).statusCode, 200);
+  await del('tasks', 'task-one');
+  const both = trashOf('tasks', 'task-one');
+  assert.equal(both.length, 2);
+  assert.notEqual(both[0].id, both[1].id);
+  assert.deepEqual(both.map((t) => t.item.title).sort(), ['Renamed first', 'Second life']);
+  // Each can be restored on its own once the other one's id is free.
+  const first = both.find((t) => t.item.title === 'Renamed first');
+  const second = both.find((t) => t.item.title === 'Second life');
+  assert.equal((await post(classC, { op: 'restore', trashId: first.id })).statusCode, 200);
+  assert.equal((await post(classC, { op: 'restore', trashId: second.id })).statusCode, 409); // id is taken right now
+  assert.equal(readDb().tasks['task-one'].title, 'Renamed first');
+  await del('tasks', 'task-one');
+  assert.equal((await post(classC, { op: 'restore', trashId: second.id })).statusCode, 200);
+  assert.equal(readDb().tasks['task-one'].title, 'Second life');
+  assert.equal(trashOf('tasks', 'task-one').length, 1); // the re-deleted first copy is still there
+});
+
+test('two deletes in the same millisecond still get different trash ids', async () => {
+  const real = Date.now;
+  const frozen = real();
+  Date.now = () => frozen; // the same millisecond every time
+  try {
+    fresh();
+    await del('events', 'event-one');
+    await post(classC, { collection: 'events', item: E1 });
+    await del('events', 'event-one');
+    assert.equal(trashOf('events', 'event-one').length, 2);
+  } finally {
+    Date.now = real;
+  }
 });
 
 test('add-task can add a task in any office', async () => {
@@ -205,38 +251,17 @@ test('un-ticking a step clears who and when', async () => {
   assert.deepEqual([s.done, s.doneBy, s.doneAt], [false, undefined, undefined]);
 });
 
-test('a task holds at most 30 steps and each step needs a good id', async () => {
-  fresh();
-  const many = Array.from({ length: 31 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: many }, patch: true })).statusCode, 400);
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'bad id!', text: 'X', done: false }] }, patch: true })).statusCode, 400);
-  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'ok-1', text: 'X' }] }, patch: true })).statusCode, 400);
-});
-
-test('anyone can replace steps wholesale and move a task to another office', async () => {
-  fresh();
-  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' } });
-  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr', steps: [{ id: 'n1', text: 'New', done: false }] }, patch: true });
-  assert.equal(r.statusCode, 200);
-  const t = readDb().tasks['task-one'];
-  assert.deepEqual([t.dept, t.steps.length, t.steps[0].id], ['hr', 1, 'n1']);
-});
-
-test('a full checklist (30 long steps, long names, long description) still saves and can be ticked', async () => {
-  fresh();
+test('a full checklist (30 long steps, long names, long description) can be ticked', async () => {
   const name = 'N'.repeat(40);
   const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'T'.repeat(200), done: i === 0, addedBy: name, ...(i === 0 ? { doneBy: name, doneAt: '2026-11-01T10:00:00.000Z' } : {}) }));
-  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', desc: 'D'.repeat(2000), steps }, patch: true });
-  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  withSteps(steps, { desc: 'D'.repeat(2000) });
   const t = await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's5', done: true, who: name });
   assert.equal(t.statusCode, 200, JSON.stringify(t.body));
   assert.equal(readDb().tasks['task-one'].steps[5].doneBy, name);
 });
 
 test('adding a 31st step says the checklist is full', async () => {
-  fresh();
-  const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
-  await post(classC, { collection: 'tasks', item: { id: 'task-one', steps }, patch: true });
+  withSteps(Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'X', done: false })));
   const r = await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 'extra', text: 'One more' } });
   assert.equal(r.statusCode, 400);
   assert.match(r.body.error, /checklist is full \(30 steps\)/);
@@ -254,13 +279,119 @@ test('a second tick on an already-ticked step keeps the first ticker', async () 
   assert.equal(s.doneAt, first.doneAt);
 });
 
-test('duplicate step ids and non-text names on steps are refused', async () => {
+// ---------- Client-sent steps and stamps are ignored (checklists change only through the step buttons) ----------
+
+const STEPS_MSG = 'Use the checklist buttons to change steps.';
+
+test('create ignores client-sent steps and stamps', async () => {
   fresh();
-  const dup = [{ id: 'a', text: 'X', done: false }, { id: 'a', text: 'Y', done: false }];
-  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: dup }, patch: true });
-  assert.equal(r.statusCode, 400);
-  assert.match(r.body.error, /same id/);
-  for (const bad of [{ addedBy: 5 }, { doneBy: {} }, { doneAt: 7 }]) {
-    assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'a', text: 'X', done: false, ...bad }] }, patch: true })).statusCode, 400);
+  const r = await post(classC, { collection: 'tasks', item: { id: 'made-up', dept: 'hr', title: 'Sneaky', steps: [{ id: 'x', text: 'Fake', done: true }], doneBy: 'Faker', doneAt: 'x', addedBy: 'Faker', createdAt: '2000-01-01T00:00:00.000Z', updatedAt: 'x', updatedBy: 'Faker' }, who: 'Test Person' });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const t = readDb().tasks['made-up'];
+  assert.equal(t.steps, undefined);
+  assert.equal(t.doneBy, undefined);
+  assert.equal(t.addedBy, 'Test Person');
+  assert.notEqual(t.createdAt, '2000-01-01T00:00:00.000Z');
+  assert.equal(t.updatedBy, 'Test Person');
+});
+
+test('patch ignores client-sent steps and stamps when other fields change', async () => {
+  withSteps(S3());
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed', steps: [], doneBy: 'Faker', addedBy: 'Faker', createdAt: '2000-01-01T00:00:00.000Z', updatedBy: 'Faker', updatedAt: 'x' }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const t = readDb().tasks['task-one'];
+  assert.equal(t.title, 'Renamed');
+  assert.deepEqual(t.steps, S3());
+  assert.equal(t.doneBy, undefined);
+  assert.equal(t.addedBy, undefined);
+  assert.equal(t.updatedBy, 'Test Person');
+});
+
+test('a Circles tick cannot fake who did it', async () => {
+  fresh();
+  await post(classC, { collection: 'coe', item: { id: 'c1', done: true, doneBy: 'Faker', doneAt: '2000-01-01T00:00:00.000Z' }, patch: true, who: 'Test Person' });
+  const c = readDb().coe.c1;
+  assert.equal(c.doneBy, 'Test Person');
+  assert.notEqual(c.doneAt, '2000-01-01T00:00:00.000Z');
+});
+
+test('a steps-only patch can delete and reorder existing steps', async () => {
+  withSteps(S3());
+  const [s1, s2, s3] = S3();
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [s3, s1] }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  assert.deepEqual(readDb().tasks['task-one'].steps.map((x) => x.id), ['s3', 's1']);
+  assert.equal(readDb().tasks['task-one'].steps[1].doneBy, 'A'); // stamps kept
+  const none = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [] }, patch: true });
+  assert.equal(none.statusCode, 200);
+  assert.deepEqual(readDb().tasks['task-one'].steps, []);
+});
+
+test('a steps-only patch cannot add, edit, tick or fake steps', async () => {
+  const [s1, s2] = S3();
+  const bad = [
+    [s1, s2, { id: 'new', text: 'Brand new', done: false }], // a step that does not exist
+    [{ ...s1, text: 'Changed' }],
+    [{ ...s2, done: true }],
+    [{ ...s1, doneBy: 'Faker' }],
+    [{ ...s1, doneAt: '2000-01-01T00:00:00.000Z' }],
+    [{ ...s2, addedBy: 'Faker' }],
+    [s1, s1], // the same id twice
+    [{ id: 's1' }], // missing the saved text and stamps
+    'not a list',
+  ];
+  for (const steps of bad) {
+    withSteps(S3());
+    const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps }, patch: true });
+    assert.equal(r.statusCode, 400, JSON.stringify(steps));
+    assert.equal(r.body.error, STEPS_MSG);
+    assert.deepEqual(readDb().tasks['task-one'].steps, S3());
   }
+});
+
+// ---------- The log records old values, so an edit can be undone by hand ----------
+
+const newestLog = () => readDb().log[0];
+
+test('an edit logs the old value of every changed key', async () => {
+  withSteps([], { desc: 'A' });
+  await post(classC, { collection: 'tasks', item: { id: 'task-one', desc: '', title: 'Renamed', due: '2026-11-02' }, patch: true, who: 'Test Person' });
+  const e = newestLog();
+  assert.equal(e.action, 'edited');
+  assert.equal(e.prev.desc, 'A');
+  assert.equal(e.prev.title, 'Test task');
+  assert.equal('due' in e.prev, false); // sent but not changed
+  assert.equal('updatedAt' in e.prev || 'updatedBy' in e.prev || 'id' in e.prev, false);
+});
+
+test('a log entry trims long old values to 300 characters', async () => {
+  withSteps([], { desc: 'D'.repeat(2000) });
+  await post(classC, { collection: 'tasks', item: { id: 'task-one', desc: 'short' }, patch: true });
+  assert.equal(newestLog().prev.desc.length, 300);
+});
+
+test('ticking or un-ticking logs the old done state, and an add logs no old values', async () => {
+  fresh();
+  await post(classC, { collection: 'tasks', item: { id: 'task-one', done: true }, patch: true, who: 'Test Person' });
+  assert.equal(newestLog().action, 'checked off');
+  assert.deepEqual(newestLog().prev, { done: false });
+  await post(classC, { collection: 'tasks', item: { id: 'brand-new', dept: 'hr', title: 'New' } });
+  assert.equal(newestLog().action, 'added');
+  assert.equal(newestLog().prev, undefined);
+});
+
+test('tick-step logs the previous step text and done state; add-step logs nothing extra', async () => {
+  fresh();
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'First step' }, who: 'A' });
+  assert.equal(newestLog().prev, undefined);
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: true, who: 'A' });
+  assert.deepEqual(newestLog().prev, { stepText: 'First step', done: false });
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: false, who: 'A' });
+  assert.deepEqual(newestLog().prev, { stepText: 'First step', done: true });
+});
+
+test('deleting and restoring leave no old-values field', async () => {
+  fresh();
+  await del('events', 'event-one');
+  assert.equal(newestLog().prev, undefined);
 });

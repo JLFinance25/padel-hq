@@ -248,8 +248,30 @@ export async function loadAll() {
 // Where the data is going, said plainly (for the owner's inbox tool).
 export const storageName = () => (usingFile() ? 'the test file on this computer (.data/db.json)' : 'the LIVE database');
 
-function logEntry(who, action, collection, title, id) {
-  return { t: new Date().toISOString(), who: cleanWho(who), action, collection, title: String(title || '').slice(0, 120), id: id || null };
+// prev (optional) holds the old values of what an edit changed, so a bad edit can be put back by hand.
+function logEntry(who, action, collection, title, id, prev) {
+  const entry = { t: new Date().toISOString(), who: cleanWho(who), action, collection, title: String(title || '').slice(0, 120), id: id || null };
+  if (prev && Object.keys(prev).length) entry.prev = prev;
+  return entry;
+}
+
+// One old value for the log: text is cut to 300 characters, anything else is kept if its JSON is short enough,
+// and cut to 300 characters of JSON if not. A key that did not exist before is recorded as null.
+function trimPrev(v) {
+  if (typeof v === 'string') return v.slice(0, 300);
+  const j = JSON.stringify(v ?? null);
+  return j.length <= 300 ? (v ?? null) : j.slice(0, 300);
+}
+
+// The old values of the keys an edit really changed (updatedAt and updatedBy never count).
+export function prevValues(before, changes) {
+  const prev = {};
+  if (!before) return prev;
+  for (const k of Object.keys(changes)) {
+    if (k === 'id' || k === 'updatedAt' || k === 'updatedBy') continue;
+    if (JSON.stringify(before[k] ?? null) !== JSON.stringify(changes[k] ?? null)) prev[k] = trimPrev(before[k]);
+  }
+  return prev;
 }
 
 export async function getItem(collection, id) {
@@ -258,10 +280,10 @@ export async function getItem(collection, id) {
   return v ? JSON.parse(v) : null;
 }
 
-export async function saveItem(collection, item, who, action) {
+export async function saveItem(collection, item, who, action, prev) {
   item.updatedAt = new Date().toISOString();
   item.updatedBy = cleanWho(who);
-  const entry = logEntry(who, action, collection, item.title, item.id);
+  const entry = logEntry(who, action, collection, item.title, item.id, prev);
   if (usingFile()) {
     const db = fileLoad();
     db[collection] ||= {};
@@ -293,7 +315,8 @@ export async function moveToTrash(collection, id, who) {
   const item = await getItem(collection, id);
   if (!item) return null;
   const now = new Date();
-  const entry = { id: `${collection}:${id}`, collection, item, title: item.title || id, deletedAt: now.toISOString(), deletedBy: cleanWho(who) };
+  // Every delete gets its own id, so deleting a new item that reuses an old id never overwrites the older copy.
+  const entry = { id: `${collection}:${id}:${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, collection, item, title: item.title || id, deletedAt: now.toISOString(), deletedBy: cleanWho(who) };
   const old = (await listItems('trash')).filter((t) => now - new Date(t.deletedAt) > TRASH_DAYS * 86400_000).map((t) => t.id);
   const log = logEntry(who, 'deleted', collection, entry.title, id);
   if (usingFile()) {

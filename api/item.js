@@ -1,11 +1,34 @@
-import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
+import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, prevValues, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
 
 // Who may change what: everyone logged in (with the class passcode) can do all of it.
 //   Add, edit and delete to-dos, calendar items, Circles items and links (Circles items can't be deleted).
 //   Check to-dos and Circles items off, add to-dos, add and tick checklist steps, and put deleted things back.
 // The safety net: every change logs the person's typed first name, and deleted things wait in "trash"
 // for 30 days where anyone can put them back. Suggestions are turned off; old ones stay in the database.
+// Checklists change only through add-step and tick-step, and who/when stamps are set here, never taken from the page.
+// So a plain add or edit ignores these fields if they are sent. The one exception: an edit that sends only
+// "steps" may delete or reorder steps, as long as every step it sends already exists exactly as saved.
 const LISTS = ['tasks', 'events', 'coe', 'links'];
+const NEVER_FROM_CLIENT = ['steps', 'doneBy', 'doneAt', 'addedBy', 'createdAt', 'updatedAt', 'updatedBy'];
+const STEP_KEYS = ['id', 'text', 'done', 'addedBy', 'doneBy', 'doneAt'];
+const STEPS_MSG = 'Use the checklist buttons to change steps.';
+
+// The saved steps named by `sent`, in the order sent, or null if anything was added, changed or repeated.
+function keptSteps(before, sent) {
+  if (!Array.isArray(sent)) return null;
+  const have = new Map((before.steps || []).map((s) => [s.id, s]));
+  const seen = new Set();
+  const out = [];
+  for (const st of sent) {
+    const old = st && typeof st === 'object' && !Array.isArray(st) ? have.get(st.id) : null;
+    if (!old || seen.has(st.id)) return null;
+    if (Object.keys(st).some((k) => !STEP_KEYS.includes(k))) return null;
+    if (STEP_KEYS.some((k) => st[k] !== old[k])) return null;
+    seen.add(st.id);
+    out.push(old);
+  }
+  return out;
+}
 
 // Ticking a Circles item records who did it and when; un-ticking clears that.
 function stampDone(collection, before, item, who) {
@@ -44,7 +67,7 @@ async function taskOp(body, who, res) {
     const task = typeof body.taskId === 'string' ? await getItem('tasks', body.taskId) : null;
     if (!task) return send(res, 404, { error: 'That to-do was removed.' });
     const steps = Array.isArray(task.steps) ? task.steps : [];
-    let next, action;
+    let next, action, prev;
     if (op === 'add-step') {
       const st = body.step;
       if (!st || typeof st !== 'object' || typeof st.id !== 'string') return send(res, 400, { error: 'Missing step.' });
@@ -68,10 +91,11 @@ async function taskOp(body, who, res) {
         }),
       };
       action = body.done ? 'ticked a step on' : 'unticked a step on';
+      prev = { stepText: String(step.text).slice(0, 300), done: step.done };
     }
     const problem = checkItem('tasks', next);
     if (problem) return send(res, 400, { error: problem });
-    return send(res, 200, { item: await saveItem('tasks', next, who, action) });
+    return send(res, 200, { item: await saveItem('tasks', next, who, action, prev) });
   }
   return send(res, 400, { error: 'Unknown action.' });
 }
@@ -114,15 +138,22 @@ export default async function handler(req, res) {
     const before = await getItem(collection, sent.id);
     if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
     if (!body.patch && before) return send(res, 409, { error: 'That item already exists.' });
-    const merged = body.patch ? { ...before, ...sent } : { ...sent, addedBy: who, createdAt: new Date().toISOString() };
+    // Only the fields people may set; stamps and checklists are ignored here (see NEVER_FROM_CLIENT).
+    let fields = Object.fromEntries(Object.entries(sent).filter(([k]) => !NEVER_FROM_CLIENT.includes(k)));
+    if (body.patch && collection === 'tasks' && 'steps' in sent && Object.keys(sent).every((k) => k === 'id' || k === 'steps')) {
+      const steps = keptSteps(before, sent.steps);
+      if (!steps) return send(res, 400, { error: STEPS_MSG });
+      fields = { id: sent.id, steps };
+    }
+    const merged = body.patch ? { ...before, ...fields } : { ...fields, addedBy: who, createdAt: new Date().toISOString() };
     const item = stampDone(collection, before, merged, who);
     if (collection === 'events' && !item.status) return send(res, 400, { error: 'Pick how sure the date is: Confirmed, Projected, From our teacher, Our target or No date yet.' });
     const problem = checkItem(collection, item);
     if (problem) return send(res, 400, { error: problem });
-    const keys = Object.keys(sent).filter((k) => k !== 'id');
+    const keys = Object.keys(fields).filter((k) => k !== 'id');
     let action = before ? 'edited' : 'added';
     if (before && keys.length === 1 && keys[0] === 'done') action = item.done ? 'checked off' : 'unchecked';
-    const saved = await saveItem(collection, item, who, action);
+    const saved = await saveItem(collection, item, who, action, before ? prevValues(before, fields) : undefined);
     return send(res, 200, { item: saved });
   } catch (e) {
     return send(res, e instanceof SyntaxError ? 400 : 500, { error: e instanceof SyntaxError ? 'That request was not valid JSON.' : e.message });
