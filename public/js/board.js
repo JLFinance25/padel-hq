@@ -94,7 +94,8 @@ function todoSidebar() {
         ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
           : '<p class="hint">Nothing to do here. Nice.</p>'}
         ${S.owner
-          ? `<button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>`
+          ? `<button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
+             <a class="trash-link" href="#deleted">Recently deleted (${S.trash.length})</a>`
           : `<a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>`}
       </div>
     </aside>`;

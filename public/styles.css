@@ -180,6 +180,7 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 .todo-sub { display: block; margin-top: 3px; font-size: 15px; color: var(--muted); }
 .todo-sub .late { color: var(--red); font-weight: 600; }
 .todo-sub .soon { color: var(--amber-ink); font-weight: 600; }
+.trash-link { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 8px; font-size: 16px; }
 
 /* ---------- Department links ---------- */
 .links { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
@@ -234,6 +235,12 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 .add-panel { margin-top: 0; }
 .add-panel .form { padding-top: 0; }
 .add-panel textarea { min-height: 80px; }
+
+/* ---------- Recently deleted ---------- */
+.trash-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.trash-row:last-child { border-bottom: 0; }
+.trash-info { min-width: 0; }
+.trash-info .r-title { overflow-wrap: anywhere; }
 
 /* ---------- Forms ---------- */
 .form { display: grid; gap: 16px; padding-top: 20px; align-content: start; }
@@ -319,5 +326,6 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
   .leave-owner { padding: 8px; min-width: 48px; }
   .owner-pill { font-size: 14px; padding: 3px 10px; }
   .name-bar { padding: 10px 16px; }
+  .trash-row { flex-direction: column; align-items: stretch; }
   .cal-nav { flex-wrap: wrap; }
 }

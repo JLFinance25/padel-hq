@@ -63,3 +63,31 @@ function viewDept(id) {
     <h2 class="group-title">${esc(d.name)} to-dos (${todos.length})</h2>
     ${todos.length ? `<ul class="todo-list boxed">${todos.map((t) => todoRow(t, false)).join('')}</ul>` : '<p class="hint">No open to-dos.</p>'}`;
 }
+
+// ---------- Recently deleted (owner only) ----------
+
+const TRASH_DAYS = 30;
+const TRASH_KIND = { tasks: 'To-do', events: 'Calendar item', links: 'Link', coe: 'Circles item' };
+
+function viewDeleted() {
+  const day = 86400000;
+  const list = [...S.trash].sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+  const rows = list.map((t) => {
+    const age = Math.max(0, Math.floor((Date.now() - new Date(t.deletedAt)) / day));
+    const left = Math.max(0, TRASH_DAYS - age);
+    const when = age < 1 ? ago(t.deletedAt) : age === 1 ? '1 day ago' : age + ' days ago';
+    const leftText = left === 0 ? 'Clears today' : left === 1 ? '1 day left' : left + ' days left';
+    return `<li class="trash-row">
+      <span class="trash-info"><span class="r-title">${esc(t.title)}</span>
+        <span class="r-desc">${esc(TRASH_KIND[t.collection] || 'Item')} · deleted by ${esc(t.deletedBy || 'Someone')} · ${esc(when)} · ${esc(leftText)}</span></span>
+      <button class="btn btn-sm" type="button" data-act="restore" data-id="${esc(t.id)}">Put back</button>
+    </li>`;
+  });
+  return `
+    <div class="page-head">
+      <div><h1>Recently deleted${list.length ? ` (${list.length})` : ''}</h1>
+      <p>Deleted things wait here for ${TRASH_DAYS} days. Put back brings one back just as it was.</p></div>
+      <a class="btn" href="#calendar">${icon('left')}Back to the calendar</a>
+    </div>
+    ${rows.length ? `<ul class="ruled">${rows.join('')}</ul>` : '<p class="empty">Nothing deleted in the last 30 days.</p>'}`;
+}

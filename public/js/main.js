@@ -126,8 +126,8 @@ function restoreFocus(key) {
 
 // ---------- Tabs and routing ----------
 
-// The owner doesn't send suggestions (they add to-dos directly).
-const isView = (v) => v === 'calendar' || (v === 'suggest' && !S.owner) || DEPTS.some((d) => d.id === v);
+// The owner doesn't send suggestions (they add to-dos directly) and only the owner sees Recently deleted.
+const isView = (v) => v === 'calendar' || (v === 'suggest' && !S.owner) || (v === 'deleted' && S.owner) || DEPTS.some((d) => d.id === v);
 
 function renderTabs() {
   const tab = (id, label, ic = '') => `<a class="tab" href="#${id}" ${S.view === id ? 'aria-current="page"' : ''}>${ic ? icon(ic) : ''}${esc(label)}</a>`;
@@ -169,6 +169,7 @@ function render() {
 
   if (S.view === 'calendar') main.innerHTML = viewHome();
   else if (S.view === 'suggest') main.innerHTML = viewSuggest();
+  else if (S.view === 'deleted') main.innerHTML = viewDeleted();
   else main.innerHTML = viewDept(S.view);
   render.lastView = S.view;
 
@@ -214,6 +215,11 @@ document.addEventListener('click', async (e) => {
     case 'add-todo': openNew('tasks', S.todoTeam !== 'all' ? { dept: S.todoTeam } : {}); break;
     case 'add-event': openNew('events'); break;
     case 'add-on-day': openNew('events', { date: el.dataset.day }); break;
+    case 'restore': {
+      el.disabled = true;
+      try { await restoreItem(el.dataset.id); } catch { el.disabled = false; } // the message is already shown
+      break;
+    }
     case 'retry': S.loadError = null; render(); refresh(); break;
     case 'drawer-tick': {
       const st = drawerState;
