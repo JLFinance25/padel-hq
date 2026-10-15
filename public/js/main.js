@@ -50,14 +50,15 @@ $('#logout-btn').addEventListener('click', async () => {
 // ---------- First name ----------
 // Check-offs show who did them. Someone logged in before names existed gets a small bar to add one.
 function renderNameBar() {
-  $('#name-bar').hidden = !!S.me || $('#app').hidden;
+  $('#name-bar').hidden = !!S.me || $('#app').hidden || S.view === 'mine'; // Mine asks for the name itself
 }
 function saveName(form) {
   const input = form.querySelector('input');
   const name = input.value.trim().slice(0, 40);
   if (!name) { input.focus(); return; }
-  S.me = name; store('phq_me', name);
+  S.me = name; store('phq_me', name); S.nameEdit = false;
   renderNameBar();
+  render(); // Mine and the New pills depend on the name
   toast('Thanks, ' + name);
 }
 
@@ -121,7 +122,7 @@ function route() {
   const changed = next.view !== S.view || next.office !== S.office;
   if (changed && drawerState) closeDrawer();
   S.view = next.view; S.office = next.office;
-  renderTabs(); render();
+  renderNameBar(); renderTabs(); render();
   if (changed) { window.scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); }
   $('#tabs [aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
@@ -137,14 +138,16 @@ function render() {
   }
   // Remember focus, then repaint, then put it back.
   const fk = focusKey(document.activeElement);
+  const typed = $('#mine-name') ? $('#mine-name').value : null; // a name being typed survives a repaint
 
-  if (S.view === 'home') main.innerHTML = viewHome(); // Task 12 replaces this with the real Home
+  if (S.view === 'home') main.innerHTML = viewHome();
   else if (S.view === 'office') main.innerHTML = viewDept(S.office);
   else if (S.view === 'mine') main.innerHTML = viewMine();
   else if (S.view === 'circles') main.innerHTML = viewCircles();
   else if (S.view === 'deleted') main.innerHTML = viewDeleted();
   else main.innerHTML = viewUnsorted();
 
+  if (typed !== null && $('#mine-name')) $('#mine-name').value = typed;
   if (!drawerState) restoreFocus(fk);
 }
 
@@ -194,7 +197,9 @@ document.addEventListener('click', async (e) => {
     case 'edit': startEdit(); break;
     case 'cancel-edit': cancelEdit(); break;
     case 'delete': deleteFromDrawer(); break;
-    case 'add-todo': openNew('tasks', S.todoTeam !== 'all' ? { dept: S.todoTeam } : {}); break;
+    case 'add-todo': openNew('tasks'); break;
+    case 'change-name': S.nameEdit = true; render(); $('#mine-name')?.focus(); $('#mine-name')?.select(); break;
+    case 'cancel-name': S.nameEdit = false; render(); break;
     case 'add-task': openNew('tasks', { dept: el.dataset.dept }); break;
     case 'toggle-done': S.doneOpen = S.doneOpen === el.dataset.id ? '' : el.dataset.id; render(); break;
     case 'tick-step': case 'step-up': case 'step-down': case 'step-del': {
@@ -226,7 +231,6 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('change', (e) => {
-  if (e.target.dataset?.act === 'todo-team') { S.todoTeam = e.target.value; render(); }
   if (e.target.dataset?.act === 'office-pick' && e.target.value) location.hash = '#' + e.target.value;
   if (e.target.id === 'f-status') showStatusHelp(e.target);
 });

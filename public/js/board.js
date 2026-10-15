@@ -1,4 +1,4 @@
-// Home: a month calendar like a phone's calendar app, with the to-do list in a sidebar.
+// Home: the Circles score, a Coming up list, and a month calendar like a phone's calendar app.
 'use strict';
 
 // ---------- Calendar ----------
@@ -57,9 +57,17 @@ function calendarHtml() {
     </section>`;
 }
 
-// ---------- To-do sidebar ----------
+// ---------- To-do rows ----------
 
-function todoRow(t, showTeam = S.todoTeam === 'all') {
+// "New" pill: someone else changed this since this device was last opened. Nothing shows on the very first visit.
+function isNew(x) {
+  if (!S.seen || !x || !x.updatedAt) return false;
+  const who = (v) => String(v || '').trim().toLowerCase();
+  return new Date(x.updatedAt) > new Date(S.seen) && who(x.updatedBy) !== who(S.me);
+}
+const newPill = (x) => (isNew(x) ? ' <span class="pill new">New</span>' : '');
+
+function todoRow(t, showTeam = false) {
   const n = daysUntil(t.due);
   const cls = n !== null && n < 0 ? 'late' : n !== null && n <= 3 ? 'soon' : '';
   const when = t.due ? (n < 0 ? `${fmt(t.due, { month: 'short', day: 'numeric' })} · ${-n === 1 ? '1 day' : -n + ' days'} late` : `${fmt(t.due)} · ${relDays(n)}`) : 'No date yet';
@@ -70,7 +78,7 @@ function todoRow(t, showTeam = S.todoTeam === 'all') {
   return `<li class="todo${t.done ? ' is-done' : ''}">
     <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="todo-open" data-open="tasks:${esc(t.id)}">
-      <span class="todo-title">${esc(t.title)}</span>
+      <span class="todo-title">${esc(t.title)}${newPill(t)}</span>
       <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(deptLabel(t.dept))}` : ''}${prog}${tag}</span>
     </button>
   </li>`;
@@ -84,36 +92,69 @@ function coeLine() {
   return `<a class="coe-line" href="#circles"><b>Circles: ${done} of ${COE_TOTAL}</b> <span>· ${next ? `${esc(next.name)} at ${next.points}` : 'Gold reached'}</span></a>`;
 }
 
-function todoSidebar() {
-  const open = S.tasks.filter((t) => !t.done && (S.todoTeam === 'all' || t.dept === S.todoTeam))
-    .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title));
-  const groups = [
-    ['Late', 'late', open.filter((t) => t.due && daysUntil(t.due) < 0)],
-    ['Next 7 days', '', open.filter((t) => t.due && daysUntil(t.due) >= 0 && daysUntil(t.due) <= 7)],
-    ['Later', '', open.filter((t) => t.due && daysUntil(t.due) > 7)],
-    ['No date yet', '', open.filter((t) => !t.due)],
-  ].filter((g) => g[2].length);
-  return `<aside class="todos" aria-labelledby="todo-title">
-      <div class="todos-head">
-        <h2 id="todo-title">To-do list</h2>
-        <label class="sr" for="todo-team">Office</label>
-        <select id="todo-team" data-act="todo-team">
-          <option value="all">All offices</option>
-          ${DEPTS.map((d) => `<option value="${d.id}" ${S.todoTeam === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}
-        </select>
-      </div>
+// ---------- Coming up: late to-dos, then the next 14 days (calendar items and open to-dos together) ----------
+
+const COMING_DAYS = 14;
+
+// The status label of a calendar item, in its status color.
+function certaintyPill(e) {
+  const st = e.status || (e.date ? 'internal' : 'nodate');
+  const label = Object.hasOwn(STATUSES, st) ? STATUSES[st] : st;
+  return `<span class="pill s-${esc(st)}">${esc(label)}</span>`;
+}
+
+// A calendar item in the list: same shape as a to-do, with a calendar mark where the check box would be.
+function comingEventRow(e) {
+  const t = todayKey();
+  const last = e.end && e.end > e.date ? e.end : e.date;
+  const when = fmt(e.date) + (last > e.date ? ' to ' + fmt(last, { month: 'short', day: 'numeric' }) : '');
+  const rel = e.date < t ? 'on now' : relDays(daysUntil(e.date));
+  return `<li class="todo cal-row">
+    <span class="cal-mark" aria-hidden="true">${icon('grid')}</span>
+    <button class="todo-open" data-open="events:${esc(e.id)}">
+      <span class="todo-title">${esc(e.title)}${newPill(e)}</span>
+      <span class="todo-sub">${esc(when)} · ${esc(rel)} · ${esc(deptLabel(e.dept))} · ${certaintyPill(e)}</span>
+    </button>
+  </li>`;
+}
+
+function comingUp() {
+  const t = todayKey();
+  const end = new Date(today()); end.setDate(end.getDate() + COMING_DAYS);
+  const endKey = dayKey(end);
+  const byDue = (a, b) => a.due.localeCompare(b.due) || a.title.localeCompare(b.title);
+  const open = S.tasks.filter((x) => !x.done && x.due);
+  const overdue = open.filter((x) => x.due < t).sort(byDue);
+  const rows = [];
+  for (const x of open) if (x.due >= t && x.due <= endKey) rows.push({ key: x.due, rank: 1, item: x, html: todoRow(x, true) });
+  for (const e of S.events) {
+    if (!e.date) continue; // no date yet: it can't be placed on a day
+    const last = e.end && e.end > e.date ? e.end : e.date;
+    if (last < t || e.date > endKey) continue;
+    rows.push({ key: e.date < t ? t : e.date, rank: 0, item: e, html: comingEventRow(e) }); // one already running counts as today
+  }
+  rows.sort((a, b) => a.key.localeCompare(b.key) || a.rank - b.rank || a.item.title.localeCompare(b.item.title));
+  return { overdue, rows };
+}
+
+function comingPanel() {
+  const { overdue, rows } = comingUp();
+  return `<section class="todos coming" aria-labelledby="coming-title">
+      <div class="todos-head"><h2 id="coming-title">Coming up</h2></div>
       <div class="todos-body">
-        ${coeLine()}
-        ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
-          : '<p class="hint">Nothing to do here. Nice.</p>'}
+        ${overdue.length ? `<h3 class="todo-group late">Overdue (${overdue.length})</h3><ul class="todo-list">${overdue.map((x) => todoRow(x, true)).join('')}</ul>` : ''}
+        <h3 class="todo-group">Next ${COMING_DAYS} days (${rows.length})</h3>
+        ${rows.length ? `<ul class="todo-list">${rows.map((r) => r.html).join('')}</ul>` : '<p class="hint">Nothing is due in the next 14 days.</p>'}
         <button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
         <a class="trash-link" href="#deleted">Recently deleted (${visibleTrash().length})</a>
       </div>
-    </aside>`;
+    </section>`;
 }
 
+// The list comes first in the page (so it leads on a phone); wide screens put the calendar beside it.
 function viewHome() {
-  return `<div class="home">${calendarHtml()}${todoSidebar()}</div>`;
+  const line = coeLine();
+  return `${line ? `<div class="home-top">${line}</div>` : ''}<div class="home">${comingPanel()}${calendarHtml()}</div>`;
 }
 
 function shiftMonth(step) {
