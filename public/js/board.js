@@ -62,7 +62,7 @@ function calendarHtml() {
 // "New" pill: someone else changed this since this device was last opened. Nothing shows on the very first visit.
 function isNew(x) {
   if (!S.seen || !x || !x.updatedAt) return false;
-  const who = (v) => String(v || '').trim().toLowerCase();
+  const who = (v) => cleanName(v).toLowerCase();
   return new Date(x.updatedAt) > new Date(S.seen) && who(x.updatedBy) !== who(S.me);
 }
 const newPill = (x) => (isNew(x) ? ' <span class="pill new">New</span>' : '');
@@ -94,11 +94,13 @@ function coeLine() {
 
 // ---------- Coming up: late to-dos, then the next 14 days (calendar items and open to-dos together) ----------
 
-const COMING_DAYS = 14;
+const COMING_DAYS = 14;  // today and the 13 days after it
+const COMING_CAP = 8;    // rows shown per group until someone taps Show all
 
 // The status label of a calendar item, in its status color.
 function certaintyPill(e) {
-  const st = e.status || (e.date ? 'internal' : 'nodate');
+  const st = eventStatus(e);
+  if (!st) return ''; // a date with no status: no label rather than a guess
   const label = Object.hasOwn(STATUSES, st) ? STATUSES[st] : st;
   return `<span class="pill s-${esc(st)}">${esc(label)}</span>`;
 }
@@ -120,7 +122,7 @@ function comingEventRow(e) {
 
 function comingUp() {
   const t = todayKey();
-  const end = new Date(today()); end.setDate(end.getDate() + COMING_DAYS);
+  const end = new Date(today()); end.setDate(end.getDate() + COMING_DAYS - 1);
   const endKey = dayKey(end);
   const byDue = (a, b) => a.due.localeCompare(b.due) || a.title.localeCompare(b.title);
   const open = S.tasks.filter((x) => !x.done && x.due);
@@ -137,16 +139,26 @@ function comingUp() {
   return { overdue, rows };
 }
 
+// One group: a heading with the full count, the first rows, and a Show all button when there are more.
+function comingGroup(key, title, cls, htmls, emptyText) {
+  if (!htmls.length && !emptyText) return '';
+  const all = S.comingAll[key], more = htmls.length > COMING_CAP;
+  return `<h3 class="todo-group ${cls}">${title} (${htmls.length})</h3>
+    ${htmls.length ? `<ul class="todo-list">${(all ? htmls : htmls.slice(0, COMING_CAP)).join('')}</ul>` : `<p class="hint">${emptyText}</p>`}
+    ${more ? `<button class="btn btn-sm btn-wide" type="button" data-act="coming-all" data-v="${key}" aria-expanded="${all}">${all ? 'Show fewer' : `Show all ${htmls.length}`}</button>` : ''}`;
+}
+
 function comingPanel() {
   const { overdue, rows } = comingUp();
   return `<section class="todos coming" aria-labelledby="coming-title">
       <div class="todos-head"><h2 id="coming-title">Coming up</h2></div>
       <div class="todos-body">
-        ${overdue.length ? `<h3 class="todo-group late">Overdue (${overdue.length})</h3><ul class="todo-list">${overdue.map((x) => todoRow(x, true)).join('')}</ul>` : ''}
-        <h3 class="todo-group">Next ${COMING_DAYS} days (${rows.length})</h3>
-        ${rows.length ? `<ul class="todo-list">${rows.map((r) => r.html).join('')}</ul>` : '<p class="hint">Nothing is due in the next 14 days.</p>'}
-        <button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
-        <a class="trash-link" href="#deleted">Recently deleted (${visibleTrash().length})</a>
+        <div class="coming-actions">
+          <button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
+          <a class="trash-link" href="#deleted">Recently deleted (${visibleTrash().length})</a>
+        </div>
+        ${comingGroup('overdue', 'Overdue', 'late', overdue.map((x) => todoRow(x, true)), '')}
+        ${comingGroup('next', `Next ${COMING_DAYS} days`, '', rows.map((r) => r.html), `Nothing is due in the next ${COMING_DAYS} days.`)}
       </div>
     </section>`;
 }

@@ -121,6 +121,7 @@ function route() {
   if (!hit && location.hash) history.replaceState(null, '', '#home'); // an address that isn't a page
   const changed = next.view !== S.view || next.office !== S.office;
   if (changed && drawerState) closeDrawer();
+  if (next.view !== S.view) S.nameEdit = false; // leaving Mine closes the name box
   S.view = next.view; S.office = next.office;
   renderNameBar(); renderTabs(); render();
   if (changed) { window.scrollTo({ top: 0 }); $('#main').focus({ preventScroll: true }); }
@@ -198,6 +199,7 @@ document.addEventListener('click', async (e) => {
     case 'cancel-edit': cancelEdit(); break;
     case 'delete': deleteFromDrawer(); break;
     case 'add-todo': openNew('tasks'); break;
+    case 'coming-all': S.comingAll[el.dataset.v] = !S.comingAll[el.dataset.v]; render(); break;
     case 'change-name': S.nameEdit = true; render(); $('#mine-name')?.focus(); $('#mine-name')?.select(); break;
     case 'cancel-name': S.nameEdit = false; render(); break;
     case 'add-task': openNew('tasks', { dept: el.dataset.dept }); break;

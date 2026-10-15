@@ -53,6 +53,7 @@ const S = {
   month: startOfMonth(new Date()), sel: null,
   seen: store('phq_seen') || '', // when this device was last opened (ISO time); empty on the very first visit
   nameEdit: false, // Mine: the name box is open
+  comingAll: { overdue: false, next: false }, // Home: which Coming up groups show every row
   doneOpen: '',    // the office whose "Done" list is showing
   me: store('phq_me') || '', // first name, so check-offs show who did them
   trash: [],       // recently deleted items (anyone logged in can put them back)
@@ -383,6 +384,11 @@ async function moveStep(taskId, stepId, dir) {
     });
   } catch { /* the message is already shown */ }
 }
+
+// How sure a calendar item's date is: its saved status, 'nodate' with no date, and '' (no label) for a date with no status. Never a guess.
+function eventStatus(e) { return e.status || (e.date ? '' : 'nodate'); }
+// The name as the server saves it in updatedBy (see cleanWho in api/_lib.js).
+const cleanName = (n) => String(n || 'Someone').replace(/[<>]/g, '').trim().slice(0, 40) || 'Someone';
 
 function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }
 

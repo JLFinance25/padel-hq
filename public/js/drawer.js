@@ -125,11 +125,11 @@ function paintDrawerNow() {
   let facts = '';
   if (collection === 'events') {
     const when = item.date ? fmt(item.date, { weekday: 'long', month: 'long', day: 'numeric' }) + (item.end && item.end !== item.date ? ' to ' + fmt(item.end, { weekday: 'long', month: 'long', day: 'numeric' }) : '') : 'No date yet';
-    const st = item.status || (item.date ? 'internal' : 'nodate');
+    const st = eventStatus(item);
     const sCls = { confirmed: 'green', projected: 'amber', nodate: 'red' }[st] || '';
     facts = fact('When', esc(when)) + fact('What', esc(KINDS[item.kind] || item.kind || 'Event')) + fact('Office', esc(deptLabel(item.dept)))
-      + fact('Is the date sure?', esc(STATUSES[st] || st), sCls);
-    facts += `<p class="status-help">${esc(STATUS_HELP[st] || '')}</p>`;
+      + (st ? fact('Is the date sure?', esc(STATUSES[st] || st), sCls) : '');
+    if (st) facts += `<p class="status-help">${esc(STATUS_HELP[st] || '')}</p>`;
   } else if (collection === 'coe') {
     const per = PERIODS.find((x) => String(x.id) === String(item.period));
     const n = daysUntil(item.due);
