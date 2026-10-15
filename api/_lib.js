@@ -8,7 +8,8 @@ import path from 'node:path';
 // suggestions = to-dos classmates sent in, waiting for the CEO to approve.
 // links = each department's quick links and learning material.
 // coe and posts are older lists the site no longer shows; their saved data is kept.
-export const COLLECTIONS = ['events', 'tasks', 'suggestions', 'links', 'coe', 'posts'];
+// trash = deleted items, kept 30 days so the owner can put them back.
+export const COLLECTIONS = ['events', 'tasks', 'suggestions', 'links', 'coe', 'posts', 'trash'];
 const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
@@ -202,7 +203,7 @@ function fileLoad() {
   try {
     return JSON.parse(fs.readFileSync(FILE, 'utf8'));
   } catch {
-    return { events: {}, tasks: {}, coe: {}, posts: {}, log: [] };
+    return { events: {}, tasks: {}, coe: {}, posts: {}, trash: {}, log: [] };
   }
 }
 
@@ -275,6 +276,68 @@ export async function saveItem(collection, item, who, action) {
     ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
   ]);
   return item;
+}
+
+// Every item in one list.
+export async function listItems(collection) {
+  if (usingFile()) return Object.values(fileLoad()[collection] || {});
+  const [hash] = await redis([['HGETALL', PREFIX + collection]]);
+  return parseAll(hash);
+}
+
+const TRASH_DAYS = 30;
+
+// Deleting keeps a copy in "trash" for 30 days so the owner can put it back. Older copies are cleared here.
+export async function moveToTrash(collection, id, who) {
+  const item = await getItem(collection, id);
+  if (!item) return null;
+  const now = new Date();
+  const entry = { id: `${collection}:${id}`, collection, item, title: item.title || id, deletedAt: now.toISOString(), deletedBy: cleanWho(who) };
+  const old = (await listItems('trash')).filter((t) => now - new Date(t.deletedAt) > TRASH_DAYS * 86400_000).map((t) => t.id);
+  const log = logEntry(who, 'deleted', collection, entry.title, id);
+  if (usingFile()) {
+    const db = fileLoad();
+    db.trash ||= {};
+    for (const k of old) delete db.trash[k];
+    db.trash[entry.id] = entry;
+    if (db[collection]) delete db[collection][id];
+    (db.log ||= []).unshift(log);
+    db.log = db.log.slice(0, LOG_KEEP);
+    fileSave(db);
+    return entry;
+  }
+  await redis([
+    ['HSET', PREFIX + 'trash', entry.id, JSON.stringify(entry)],
+    ['HDEL', PREFIX + collection, id],
+    ...(old.length ? [['HDEL', PREFIX + 'trash', ...old]] : []),
+    ['LPUSH', LOG_KEY, JSON.stringify(log)],
+    ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
+  ]);
+  return entry;
+}
+
+// Puts a deleted item back. Returns 'exists' if something with that id was added since.
+export async function restoreFromTrash(trashId, who) {
+  const entry = await getItem('trash', trashId);
+  if (!entry) return null;
+  if (await getItem(entry.collection, entry.item.id)) return 'exists';
+  const log = logEntry(who, 'restored', entry.collection, entry.title, entry.item.id);
+  if (usingFile()) {
+    const db = fileLoad();
+    (db[entry.collection] ||= {})[entry.item.id] = entry.item;
+    delete db.trash[trashId];
+    (db.log ||= []).unshift(log);
+    db.log = db.log.slice(0, LOG_KEEP);
+    fileSave(db);
+    return entry.item;
+  }
+  await redis([
+    ['HSET', PREFIX + entry.collection, entry.item.id, JSON.stringify(entry.item)],
+    ['HDEL', PREFIX + 'trash', trashId],
+    ['LPUSH', LOG_KEY, JSON.stringify(log)],
+    ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
+  ]);
+  return entry.item;
 }
 
 export async function deleteItem(collection, id, who, title) {
