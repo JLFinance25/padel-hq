@@ -30,7 +30,9 @@ const S = {
   view: 'calendar', loaded: false,
   month: startOfMonth(new Date()), sel: null,
   todoTeam: 'all', // the to-do sidebar's department filter
-  me: '',
+  me: store('phq_me') || '', // first name, so check-offs show who did them
+  owner: false,    // true while logged in with the owner passcode
+  trash: [],       // recently deleted items (the server only sends these to the owner)
 };
 
 // ---------- Small helpers ----------
@@ -109,8 +111,10 @@ async function refresh(quiet) {
     lastData = raw;
     const first = !S.loaded;
     S.events = data.events || []; S.tasks = data.tasks || []; S.suggestions = data.suggestions || []; S.links = data.links || [];
+    S.trash = data.trash || [];
     S.loaded = true; S.loadError = null;
-    if (!drawerIsEditing()) { renderTabs(); render(); if (drawerState) syncDrawer(); }
+    renderTabs(); render(); // an open form is left alone: syncDrawer skips it
+    if (drawerState) syncDrawer();
   } catch (e) {
     // Nothing on screen yet: say what went wrong where the board would be, with a way to try again.
     if (!S.loaded) { S.loadError = e.message; render(); return; }
@@ -119,6 +123,7 @@ async function refresh(quiet) {
 }
 
 function putLocal(collection, item) {
+  if (!S[collection]) return; // lists the page doesn't show (like Circles)
   const i = S[collection].findIndex((x) => x.id === item.id);
   if (i >= 0) S[collection][i] = item; else S[collection].push(item);
 }
@@ -134,7 +139,7 @@ async function createItem(collection, item) {
   } catch (e) {
     S[collection] = S[collection].filter((x) => x.id !== item.id);
     renderTabs(); render();
-    toast("Didn't save: " + e.message, true);
+    if (e.status === 403 && S.owner) ownerLost(); else toast("Didn't save: " + e.message, true);
     throw e;
   }
 }
@@ -153,9 +158,53 @@ async function updateItem(collection, id, fields) {
   } catch (e) {
     if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
     renderTabs(); render();
-    toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
+    if (e.status === 403 && S.owner) ownerLost();
+    else toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
     throw e;
   }
+}
+
+// Owner only: delete goes to Recently deleted, with Undo in the message.
+async function removeItem(collection, id) {
+  const before = findItem(collection, id);
+  S[collection] = S[collection].filter((x) => x.id !== id);
+  renderTabs(); render();
+  try {
+    const { trash } = await api(`/api/item?collection=${encodeURIComponent(collection)}&id=${encodeURIComponent(id)}&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
+    S.trash.push(trash);
+    renderTabs(); render();
+    toast('Deleted', false, { label: 'Undo', run: () => restoreItem(trash.id).catch(() => {}) });
+  } catch (e) {
+    if (before) putLocal(collection, before);
+    renderTabs(); render();
+    if (e.status === 403) ownerLost(); else toast("Didn't delete: " + e.message, true);
+    throw e;
+  }
+}
+
+// Owner only: put something from Recently deleted back exactly as it was.
+async function restoreItem(trashId) {
+  try {
+    const { item } = await api('/api/item', { method: 'POST', body: JSON.stringify({ op: 'restore', trashId, who: S.me }) });
+    const [collection] = trashId.split(':');
+    putLocal(collection, item);
+    S.trash = S.trash.filter((t) => t.id !== trashId);
+    renderTabs(); render();
+    toast('Put back');
+    return item;
+  } catch (e) {
+    if (e.status === 403) ownerLost(); else toast("Didn't put it back: " + e.message, true);
+    if (e.status === 404 || e.status === 409) refresh(true);
+    throw e;
+  }
+}
+
+// The server stopped treating this device as the owner (for example the owner login ran out).
+function ownerLost() {
+  S.owner = false;
+  fallBackFromOwnerView();
+  renderTabs(); render(); paintOwnerTag();
+  toast('Owner mode ended on this device. Log out and back in with the owner passcode.', true);
 }
 
 // Check off or un-check, with an Undo button in the message.

@@ -92,7 +92,7 @@ function todoSidebar() {
       <div class="todos-body">
         ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
           : '<p class="hint">Nothing to do here. Nice.</p>'}
-        <a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>
+        ${S.owner ? '' : `<a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>`}
       </div>
     </aside>`;
 }
