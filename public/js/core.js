@@ -3,7 +3,7 @@
 'use strict';
 
 const DEPTS = [
-  { id: 'ceo', name: 'CEO office', code: 'CEO', blurb: 'The business plan as a whole, decisions, and every talk with Ms. Garrison and the judges.' },
+  { id: 'ceo', name: 'CEO office', code: 'CEO', blurb: 'The business plan as a whole, decisions, and every talk with our teacher and the judges.' },
   { id: 'ops', name: 'Operations', code: 'Ops', blurb: "The set and what's in the box, samples, inventory, and getting everything to the booth." },
   { id: 'finance', name: 'Finance & Compliance', code: 'Finance', blurb: 'Prices, the Numbers Ledger, payroll and taxes, and the rules: legal form, disclaimer, trademark, labels.' },
   { id: 'marketing', name: 'Marketing', code: 'Marketing', blurb: 'The brand, branding PDF, video, newsletter, social, apparel and the booth design.' },

@@ -148,6 +148,8 @@ export default async function handler(req, res) {
     const merged = body.patch ? { ...before, ...fields } : { ...fields, addedBy: who, createdAt: new Date().toISOString() };
     const item = stampDone(collection, before, merged, who);
     if (collection === 'events' && !item.status) return send(res, 400, { error: 'Pick how sure the date is: Confirmed, Projected, From our teacher, Our target or No date yet.' });
+    if (Object.hasOwn(sent, 'dept') && ['racquets', 'apparel'].includes(sent.dept) && (!before || before.dept !== sent.dept))
+      return send(res, 409, { error: 'This page is out of date. Close it and open the site again.' });
     const problem = checkItem(collection, item);
     if (problem) return send(res, 400, { error: problem });
     const keys = Object.keys(fields).filter((k) => k !== 'id');

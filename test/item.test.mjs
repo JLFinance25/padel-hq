@@ -226,13 +226,37 @@ test('a step with no text is refused', async () => {
   assert.equal((await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: '  ' } })).statusCode, 400);
 });
 
-test('every office id works, and the old racquets and apparel ones still do', async () => {
+test('every office id works', async () => {
   fresh();
-  for (const dept of ['ceo', 'ops', 'finance', 'marketing', 'sales', 'tech', 'hr', 'firm', 'racquets', 'apparel']) {
+  for (const dept of ['ceo', 'ops', 'finance', 'marketing', 'sales', 'tech', 'hr', 'firm']) {
     assert.equal((await post(classC, { collection: 'tasks', item: { id: 'o-' + dept, dept, title: 'T' } })).statusCode, 200, dept);
   }
   const bad = await post(classC, { collection: 'tasks', item: { id: 'o-bad', dept: 'nowhere', title: 'T' } });
   assert.match(bad.body.error, /Pick one of the offices/);
+});
+
+test('an old page cannot move an item back to racquets', async () => {
+  seed({ tasks: { [T1.id]: { ...T1, dept: 'ops' } } });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'racquets' }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 409);
+  assert.equal(r.body.error, 'This page is out of date. Close it and open the site again.');
+  assert.equal(readDb().tasks['task-one'].dept, 'ops');
+  assert.equal(readDb().tasks['task-one'].title, 'Test task');
+});
+
+test('an edit to an item already on racquets, sending only id and title, still works', async () => {
+  seed({ tasks: { [T1.id]: { ...T1, dept: 'racquets' } } });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', title: 'Renamed' }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 200);
+  assert.equal(readDb().tasks['task-one'].title, 'Renamed');
+  assert.equal(readDb().tasks['task-one'].dept, 'racquets');
+});
+
+test('an old page cannot create a new task on racquets', async () => {
+  fresh();
+  const r = await post(classC, { collection: 'tasks', item: { id: 'old-page', dept: 'racquets', title: 'From an old page' }, who: 'Test Person' });
+  assert.equal(r.statusCode, 409);
+  assert.equal(readDb().tasks['old-page'], undefined);
 });
 
 test('add-task refuses a duplicate id, a bad office and a blank title', async () => {
