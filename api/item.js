@@ -49,13 +49,17 @@ async function taskOp(body, who, res) {
     if (op === 'add-step') {
       const st = body.step;
       if (!st || typeof st !== 'object' || typeof st.id !== 'string') return send(res, 400, { error: 'Missing step.' });
+      if (steps.length >= 30) return send(res, 400, { error: "This to-do's checklist is full (30 steps)." });
       if (steps.some((x) => x.id === st.id)) return send(res, 409, { error: 'That step already exists.' });
       const text = typeof st.text === 'string' ? st.text.trim() : '';
       next = { ...task, steps: [...steps, { id: st.id, text, done: false, addedBy: who }] };
       action = 'added a step to';
     } else {
       if (typeof body.done !== 'boolean') return send(res, 400, { error: 'Say whether the step is done.' });
-      if (!steps.some((x) => x.id === body.stepId)) return send(res, 404, { error: 'That step was removed.' });
+      const step = steps.find((x) => x.id === body.stepId);
+      if (!step) return send(res, 404, { error: 'That step was removed.' });
+      // Already in the state asked for: leave it alone so the first ticker is kept.
+      if (step.done === body.done) return send(res, 200, { item: task });
       next = {
         ...task,
         steps: steps.map((x) => {

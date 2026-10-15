@@ -225,3 +225,46 @@ test('owner can replace steps wholesale and move a task to another office', asyn
   const t = readDb().tasks['task-one'];
   assert.deepEqual([t.dept, t.steps.length, t.steps[0].id], ['hr', 1, 'n1']);
 });
+
+test('a full checklist (30 long steps, long names, long description) still saves and can be ticked', async () => {
+  fresh();
+  const name = 'N'.repeat(40);
+  const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'T'.repeat(200), done: i === 0, addedBy: name, ...(i === 0 ? { doneBy: name, doneAt: '2026-11-01T10:00:00.000Z' } : {}) }));
+  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', desc: 'D'.repeat(2000), steps }, patch: true });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const t = await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's5', done: true, who: name });
+  assert.equal(t.statusCode, 200, JSON.stringify(t.body));
+  assert.equal(readDb().tasks['task-one'].steps[5].doneBy, name);
+});
+
+test('adding a 31st step says the checklist is full', async () => {
+  fresh();
+  const steps = Array.from({ length: 30 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
+  await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps }, patch: true });
+  const r = await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 'extra', text: 'One more' } });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.body.error, /checklist is full \(30 steps\)/);
+});
+
+test('a second tick on an already-ticked step keeps the first ticker', async () => {
+  fresh();
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' }, who: 'A' });
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: true, who: 'A' });
+  const first = readDb().tasks['task-one'].steps[0];
+  const r = await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: true, who: 'B' });
+  assert.equal(r.statusCode, 200);
+  const s = readDb().tasks['task-one'].steps[0];
+  assert.equal(s.doneBy, 'A');
+  assert.equal(s.doneAt, first.doneAt);
+});
+
+test('duplicate step ids and non-text names on steps are refused', async () => {
+  fresh();
+  const dup = [{ id: 'a', text: 'X', done: false }, { id: 'a', text: 'Y', done: false }];
+  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: dup }, patch: true });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.body.error, /same id/);
+  for (const bad of [{ addedBy: 5 }, { doneBy: {} }, { doneAt: 7 }]) {
+    assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'a', text: 'X', done: false, ...bad }] }, patch: true })).statusCode, 400);
+  }
+});

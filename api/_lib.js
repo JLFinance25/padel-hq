@@ -14,7 +14,7 @@ const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
 const SESSION_DAYS = 40;
-const MAX_ITEM_BYTES = 8000;
+const MAX_ITEM_BYTES = 16000; // room for a task with 30 full-length checklist steps
 const MAX_STEPS = 30;
 
 // ---------- HTTP ----------
@@ -164,11 +164,15 @@ export function checkItem(collection, item) {
   if ('done' in item && typeof item.done !== 'boolean') return '“done” must be true or false.';
   if (collection === 'tasks' && item.steps !== undefined) {
     if (!Array.isArray(item.steps) || item.steps.length > MAX_STEPS) return `A to-do can have at most ${MAX_STEPS} checklist steps.`;
+    const seen = new Set();
     for (const st of item.steps) {
       if (!st || typeof st !== 'object' || Array.isArray(st)) return 'Bad checklist step.';
       if (typeof st.id !== 'string' || !/^[a-z0-9-]{1,40}$/i.test(st.id)) return 'Bad checklist step id.';
       if (typeof st.text !== 'string' || !st.text.trim() || st.text.length > 200) return 'Each checklist step needs some text (up to 200 characters).';
       if (typeof st.done !== 'boolean') return 'Each checklist step must be done or not done.';
+      for (const k of ['addedBy', 'doneBy', 'doneAt']) if (st[k] !== undefined && typeof st[k] !== 'string') return 'Bad checklist step.';
+      if (seen.has(st.id)) return 'Two checklist steps have the same id.';
+      seen.add(st.id);
     }
   }
   if (collection !== 'posts') {
