@@ -51,7 +51,8 @@ const S = {
   events: [], tasks: [], links: [], coe: [],
   view: 'home', office: '', loaded: false,
   month: startOfMonth(new Date()), sel: null,
-  todoTeam: 'all', // the to-do sidebar's department filter
+  seen: store('phq_seen') || '', // when this device was last opened (ISO time); empty on the very first visit
+  nameEdit: false, // Mine: the name box is open
   doneOpen: '',    // the office whose "Done" list is showing
   me: store('phq_me') || '', // first name, so check-offs show who did them
   trash: [],       // recently deleted items (anyone logged in can put them back)
@@ -135,6 +136,7 @@ async function refresh(quiet) {
     S.events = data.events || []; S.tasks = data.tasks || []; S.links = data.links || []; S.coe = data.coe || [];
     S.trash = data.trash || [];
     S.loaded = true; S.loadError = null;
+    if (first) store('phq_seen', new Date().toISOString()); // next visit, anything newer than S.seen (read at start) is "New"
     renderTabs(); render(); // an open form is left alone: syncDrawer skips it
     if (drawerState) syncDrawer();
   } catch (e) {

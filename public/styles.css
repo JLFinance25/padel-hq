@@ -384,10 +384,30 @@ a.todo-open { display: block; color: inherit; text-decoration: none; }
 .step-btns .icon-btn:disabled { opacity: .3; cursor: default; }
 .step-del { color: var(--red); }
 
+/* ---------- Home: Coming up list, Mine, "New" pills ---------- */
+.home-top { margin-bottom: 18px; }
+.home-top .coe-line { margin: 0; }
+/* The list is first in the page so it leads on a phone; wide screens put the calendar on the left. */
+.coming { grid-column: 2; grid-row: 1; position: static; max-height: none; overflow: visible; }
+.home > .cal { grid-column: 1; grid-row: 1; min-width: 0; }
+.coming .todos-body { overflow: visible; }
+.cal-mark { width: 34px; height: 34px; display: grid; place-items: center; color: var(--muted); }
+.cal-mark .ic { width: 22px; height: 22px; stroke-width: 1.8; }
+.cal-row .pill { padding: 1px 10px; font-size: 14px; }
+.cal-row .pill.s-internal, .cal-row .pill.s-nodate { border-color: var(--line-2); }
+.pill.new { background: var(--yellow-soft); color: var(--amber-ink); border-color: var(--yellow); padding: 0 8px; font-size: 13px; font-weight: 600; margin-left: 6px; vertical-align: 2px; }
+.linkbtn { border: 0; background: none; padding: 0 2px; min-height: 44px; color: var(--green); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.linkbtn:hover { color: var(--green-hover); }
+.name-form { display: grid; gap: 8px; max-width: 460px; }
+.name-form label { font-weight: 600; color: var(--ink); }
+.name-form .name-bar-row { flex: none; flex-wrap: wrap; }
+.name-form .name-bar-row input { flex: 1 1 180px; min-width: 0; }
+.empty a { display: inline-flex; align-items: center; min-height: 44px; }
+
 /* ---------- Medium screens ---------- */
 @media (max-width: 1000px) {
   .home { grid-template-columns: 1fr; }
-  .todos { position: static; max-height: none; }
+  .coming, .home > .cal { grid-column: auto; grid-row: auto; }
 }
 
 /* ---------- Phones ---------- */

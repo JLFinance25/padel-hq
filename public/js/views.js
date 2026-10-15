@@ -1,4 +1,4 @@
-// The other pages: one page per office, Unsorted, Mine (for now), Circles and Recently deleted.
+// The other pages: one page per office, Unsorted, Mine, Circles and Recently deleted.
 'use strict';
 
 // ---------- Office pages: quick links, learning material, and the office's to-dos ----------
@@ -34,7 +34,7 @@ function officeEventRow(e) {
   let when = 'No date yet';
   if (e.date) when = fmt(e.date, { weekday: 'short', month: 'short', day: 'numeric' }) + (e.end && e.end > e.date ? ' to ' + fmt(e.end, { month: 'short', day: 'numeric' }) : '');
   return `<li class="cal-item"><button class="todo-open" data-open="events:${esc(e.id)}">
-    <span class="todo-title">${esc(e.title)}</span>
+    <span class="todo-title">${esc(e.title)}${newPill(e)}</span>
     <span class="todo-sub">${esc(when)} · <span class="pill s-${esc(st)}">${esc(label)}</span></span>
   </button></li>`;
 }
@@ -104,10 +104,35 @@ function viewUnsorted() {
     ].join('') : '<p class="empty"><b>Nothing here.</b>Every item is on an office.</p>'}`;
 }
 
-// ---------- Mine (placeholder until the real page lands) ----------
+// ---------- Mine: open to-dos with my name in the Who box ----------
+
+// Does the Who text contain this name as a whole word? "Sam" matches "Sam, Lee" but not "Samantha".
+function ownerHas(owner, name) {
+  const n = String(name || '').trim();
+  if (!n) return false;
+  const re = new RegExp('(^|[^\\p{L}\\p{N}])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}\\p{N}])', 'iu');
+  return re.test(String(owner || ''));
+}
+
+function nameForm(current) {
+  return `<form class="name-form" data-form="name">
+    <label for="mine-name">${current ? 'Your first name' : 'What is your first name?'}</label>
+    <span class="name-bar-row"><input id="mine-name" type="text" maxlength="40" autocomplete="given-name" spellcheck="false" value="${esc(current)}" required><button class="btn btn-primary" type="submit">Save</button>${current ? '<button class="btn" type="button" data-act="cancel-name">Cancel</button>' : ''}</span>
+  </form>`;
+}
 
 function viewMine() {
-  return `<div class="page-head"><div><h1>Mine</h1><p>Coming soon: the to-dos with your name on them.</p></div></div>`;
+  if (!S.me || S.nameEdit) {
+    return `<div class="page-head"><div><h1>Mine</h1><p>Your to-dos show here once we know your name. Type it the way it appears in the Who box on a to-do.</p></div></div>${nameForm(S.me)}`;
+  }
+  const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title);
+  const mine = S.tasks.filter((t) => !t.done && ownerHas(t.owner, S.me)).sort(byDue);
+  const groups = [...DEPTS.map((d) => [d.name, mine.filter((t) => t.dept === d.id)]), ['Unsorted', mine.filter((t) => !isOffice(t.dept))]].filter((g) => g[1].length);
+  return `
+    <div class="page-head"><div><h1>Mine</h1>
+      <p>Open to-dos with ${esc(S.me)} in the Who box. <button class="linkbtn" type="button" data-act="change-name">Not you? Change name</button></p></div></div>
+    ${groups.length ? groups.map(([title, items]) => `<h2 class="group-title">${esc(title)} (${items.length})</h2><ul class="todo-list boxed">${items.map((t) => todoRow(t, false)).join('')}</ul>`).join('')
+      : `<p class="empty"><b>Nothing has your name on it yet.</b>Tasks show here when their 'Who' includes ${esc(S.me)}.<br><a href="#o/ceo">See the offices</a></p>`}`;
 }
 
 // ---------- Circles of Excellence ----------
@@ -139,7 +164,7 @@ function coeRowHtml(c, bonus) {
   return `<li class="coe-row${c.done ? ' is-done' : ''}">
     <button class="tick" role="checkbox" aria-checked="${!!c.done}" aria-label="Done: ${esc(c.title)}" data-tick="coe:${esc(c.id)}">${icon('check')}</button>
     <button class="coe-open" data-open="coe:${esc(c.id)}">
-      <span class="r-title">${esc(c.title)}</span>
+      <span class="r-title">${esc(c.title)}${newPill(c)}</span>
       <span class="r-desc coe-meta">${esc(deptLabel(c.dept))}${dueText ? ` · <span class="${late ? 'overdue' : ''}">${esc(dueText)}${late ? ' (late)' : ''}</span>` : ''}</span>
       ${who ? `<span class="coe-who">${esc(who)}</span>` : ''}
     </button>
