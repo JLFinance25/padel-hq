@@ -83,3 +83,55 @@ test('trash older than 30 days is pruned on the next delete', async () => {
   await call(item, { method: 'DELETE', url: '/api/item?collection=tasks&id=task-one', cookie: ownerC });
   assert.equal(readDb().trash['tasks:old'], undefined);
 });
+
+test('classmate can tick a Circles item and it records who and when', async () => {
+  fresh();
+  const r = await post(classC, { collection: 'coe', item: { id: 'c1', done: true }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 200);
+  const c = readDb().coe.c1;
+  assert.equal(c.done, true);
+  assert.equal(c.doneBy, 'Test Person');
+  assert.match(c.doneAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test('un-ticking a Circles item clears who and when', async () => {
+  fresh();
+  await post(classC, { collection: 'coe', item: { id: 'c1', done: true }, patch: true, who: 'Test Person' });
+  await post(classC, { collection: 'coe', item: { id: 'c1', done: false }, patch: true, who: 'Test Person' });
+  const c = readDb().coe.c1;
+  assert.equal(c.done, false);
+  assert.equal(c.doneBy, undefined);
+});
+
+test('classmate still cannot edit a Circles item', async () => {
+  fresh();
+  assert.equal((await post(classC, { collection: 'coe', item: { id: 'c1', points: 9 }, patch: true })).statusCode, 403);
+});
+
+test('owner ticking a Circles item records who and when too', async () => {
+  fresh();
+  const r = await post(ownerC, { collection: 'coe', item: { id: 'c1', done: true }, patch: true, who: 'CEO' });
+  assert.equal(r.statusCode, 200);
+  assert.equal(readDb().coe.c1.doneBy, 'CEO');
+});
+
+test('an unknown list name is refused with 400 before any lookup', async () => {
+  fresh();
+  assert.equal((await post(classC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
+  assert.equal((await post(classC, { collection: '__proto__', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
+  assert.equal((await post(ownerC, { collection: 'bogus', item: { id: 'x', done: true }, patch: true })).statusCode, 400);
+});
+
+test('classmate cannot restore from Recently deleted', async () => {
+  fresh();
+  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
+  assert.equal((await post(classC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 403);
+  assert.ok(readDb().trash['events:event-one']);
+});
+
+test('restore says 409 when something with that id is already back', async () => {
+  fresh();
+  await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
+  assert.equal((await post(ownerC, { collection: 'events', item: E1 })).statusCode, 200);
+  assert.equal((await post(ownerC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 409);
+});

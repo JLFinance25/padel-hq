@@ -6,6 +6,15 @@ import { send, readJson, query, requireLogin, isOwner, checkItem, getItem, saveI
 //   and put deleted things back. Deleted things wait in "trash" for 30 days.
 const NOPE = 'Only the CEO can change that. You can check off to-dos and send suggestions.';
 const OWNER_LISTS = ['tasks', 'events', 'coe', 'links'];
+const CLASS_LISTS = ['tasks', 'coe', 'suggestions']; // lists a classmate may touch (suggestions goes away in a later step)
+
+// Ticking a Circles item records who did it and when; un-ticking clears that.
+function stampDone(collection, before, item, who) {
+  if (collection !== 'coe' || !before || before.done === item.done) return item;
+  if (item.done) return { ...item, doneBy: who, doneAt: new Date().toISOString() };
+  const { doneBy, doneAt, ...rest } = item;
+  return rest;
+}
 
 export default async function handler(req, res) {
   try {
@@ -38,6 +47,8 @@ export default async function handler(req, res) {
 
     const { collection, item: sent } = body;
     if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
+    // Unknown list names are refused before storage is touched.
+    if (!OWNER_LISTS.includes(collection) && !CLASS_LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
 
     if (!owner) {
       if (collection === 'suggestions') {
@@ -57,12 +68,13 @@ export default async function handler(req, res) {
         return send(res, 200, { item: saved });
       }
 
-      // Check a to-do off or back on, and nothing else.
+      // Check a to-do or a Circles item off or back on, and nothing else.
       const keys = Object.keys(sent).filter((k) => k !== 'id');
-      if (collection !== 'tasks' || keys.length !== 1 || keys[0] !== 'done' || typeof sent.done !== 'boolean') return send(res, 403, { error: NOPE });
-      const before = await getItem('tasks', sent.id);
-      if (!before) return send(res, 404, { error: 'That to-do was removed.' });
-      const saved = await saveItem('tasks', { ...before, done: sent.done }, who, sent.done ? 'checked off' : 'unchecked');
+      if (!['tasks', 'coe'].includes(collection) || keys.length !== 1 || keys[0] !== 'done' || typeof sent.done !== 'boolean') return send(res, 403, { error: NOPE });
+      const before = await getItem(collection, sent.id);
+      if (!before) return send(res, 404, { error: 'That item was removed.' });
+      const next = stampDone(collection, before, { ...before, done: sent.done }, who);
+      const saved = await saveItem(collection, next, who, sent.done ? 'checked off' : 'unchecked');
       return send(res, 200, { item: saved });
     }
 
@@ -71,7 +83,8 @@ export default async function handler(req, res) {
     const before = await getItem(collection, sent.id);
     if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
     if (!body.patch && before) return send(res, 409, { error: 'That item already exists.' });
-    const item = body.patch ? { ...before, ...sent } : { ...sent, addedBy: who, createdAt: new Date().toISOString() };
+    const merged = body.patch ? { ...before, ...sent } : { ...sent, addedBy: who, createdAt: new Date().toISOString() };
+    const item = stampDone(collection, before, merged, who);
     if (collection === 'events' && !item.status) return send(res, 400, { error: 'Pick how sure the date is: Confirmed, Projected, From our teacher, Our target or No date yet.' });
     const problem = checkItem(collection, item);
     if (problem) return send(res, 400, { error: problem });
