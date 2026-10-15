@@ -21,11 +21,11 @@ test('classmate can check off a task, and the log shows their name', async () =>
   assert.equal(readDb().log[0].who, 'Test Person');
 });
 
-test('classmate can still send a suggestion', async () => {
+test('classmate can no longer send a suggestion', async () => {
   fresh();
   const r = await post(classC, { collection: 'suggestions', item: { id: 'sug-1', title: 'Idea', dept: 'firm' }, who: 'Test Person' });
-  assert.equal(r.statusCode, 200);
-  assert.equal(readDb().suggestions['sug-1'].title, 'Idea');
+  assert.equal(r.statusCode, 403);
+  assert.equal(readDb().suggestions['sug-1'], undefined);
 });
 
 test('classmate cannot edit, add events or delete', async () => {
@@ -134,4 +134,94 @@ test('restore says 409 when something with that id is already back', async () =>
   await call(item, { method: 'DELETE', url: '/api/item?collection=events&id=event-one', cookie: ownerC });
   assert.equal((await post(ownerC, { collection: 'events', item: E1 })).statusCode, 200);
   assert.equal((await post(ownerC, { op: 'restore', trashId: 'events:event-one' })).statusCode, 409);
+});
+
+test('classmate can add a task in any office', async () => {
+  fresh();
+  const r = await post(classC, { op: 'add-task', item: { id: 'new-task', title: 'Draft the catalog', dept: 'sales', due: '2026-11-10', owner: 'Test Person', done: true, addedBy: 'Faker' }, who: 'Test Person' });
+  assert.equal(r.statusCode, 200);
+  const t = readDb().tasks['new-task'];
+  assert.deepEqual([t.done, t.addedBy, t.steps.length, t.dept], [false, 'Test Person', 0, 'sales']);
+});
+
+test('classmate can add a step and tick it without wiping other ticks', async () => {
+  fresh();
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'First' }, who: 'A' });
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's2', text: 'Second' }, who: 'B' });
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: true, who: 'A' });
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's2', done: true, who: 'B' });
+  const steps = readDb().tasks['task-one'].steps;
+  assert.deepEqual(steps.map((s) => s.done), [true, true]);
+  assert.equal(steps[1].doneBy, 'B');
+});
+
+test('classmate cannot move or delete steps', async () => {
+  fresh();
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: [] }, patch: true })).statusCode, 403);
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr' }, patch: true })).statusCode, 403);
+});
+
+test('new office ids are accepted and unknown ones refused', async () => {
+  fresh();
+  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'hr-1', dept: 'hr', title: 'Payroll records' } })).statusCode, 200);
+  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'x-1', dept: 'nowhere', title: 'X' } })).statusCode, 400);
+});
+
+test('a step with no text is refused', async () => {
+  fresh();
+  assert.equal((await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: '  ' } })).statusCode, 400);
+});
+
+test('every office id works, and the old racquets and apparel ones still do', async () => {
+  fresh();
+  for (const dept of ['ceo', 'ops', 'finance', 'marketing', 'sales', 'tech', 'hr', 'firm', 'racquets', 'apparel']) {
+    assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'o-' + dept, dept, title: 'T' } })).statusCode, 200, dept);
+  }
+  const bad = await post(ownerC, { collection: 'tasks', item: { id: 'o-bad', dept: 'nowhere', title: 'T' } });
+  assert.match(bad.body.error, /Pick one of the offices/);
+});
+
+test('add-task refuses a duplicate id, a bad office and a blank title', async () => {
+  fresh();
+  assert.equal((await post(classC, { op: 'add-task', item: { id: 'task-one', title: 'Again', dept: 'hr' } })).statusCode, 409);
+  assert.equal((await post(classC, { op: 'add-task', item: { id: 'n1', title: 'X', dept: 'nowhere' } })).statusCode, 400);
+  assert.equal((await post(classC, { op: 'add-task', item: { id: 'n2', title: '   ', dept: 'hr' } })).statusCode, 400);
+  assert.equal(readDb().tasks.n1, undefined);
+});
+
+test('add-step and tick-step say 404 when the task or step is gone, 409 on a repeated step id', async () => {
+  fresh();
+  assert.equal((await post(classC, { op: 'add-step', taskId: 'ghost', step: { id: 's1', text: 'X' } })).statusCode, 404);
+  assert.equal((await post(classC, { op: 'tick-step', taskId: 'ghost', stepId: 's1', done: true })).statusCode, 404);
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' } });
+  assert.equal((await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 'nope', done: true })).statusCode, 404);
+  assert.equal((await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: 'yes' })).statusCode, 400);
+  assert.equal((await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'Dup' } })).statusCode, 409);
+});
+
+test('un-ticking a step clears who and when', async () => {
+  fresh();
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' }, who: 'A' });
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: true, who: 'A' });
+  assert.match(readDb().tasks['task-one'].steps[0].doneAt, /^\d{4}-/);
+  await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 's1', done: false, who: 'A' });
+  const s = readDb().tasks['task-one'].steps[0];
+  assert.deepEqual([s.done, s.doneBy, s.doneAt], [false, undefined, undefined]);
+});
+
+test('a task holds at most 30 steps and each step needs a good id', async () => {
+  fresh();
+  const many = Array.from({ length: 31 }, (_, i) => ({ id: 's' + i, text: 'X', done: false }));
+  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: many }, patch: true })).statusCode, 400);
+  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'bad id!', text: 'X', done: false }] }, patch: true })).statusCode, 400);
+  assert.equal((await post(ownerC, { collection: 'tasks', item: { id: 'task-one', steps: [{ id: 'ok-1', text: 'X' }] }, patch: true })).statusCode, 400);
+});
+
+test('owner can replace steps wholesale and move a task to another office', async () => {
+  fresh();
+  await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 's1', text: 'X' } });
+  const r = await post(ownerC, { collection: 'tasks', item: { id: 'task-one', dept: 'hr', steps: [{ id: 'n1', text: 'New', done: false }] }, patch: true });
+  assert.equal(r.statusCode, 200);
+  const t = readDb().tasks['task-one'];
+  assert.deepEqual([t.dept, t.steps.length, t.steps[0].id], ['hr', 1, 'n1']);
 });

@@ -1,12 +1,12 @@
 import { send, readJson, query, requireLogin, isOwner, checkItem, getItem, saveItem, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
 
 // Who may change what (checked here, not just hidden in the page):
-//   Everyone logged in: check a to-do off or back on, and send a suggestion (it waits in the CEO's inbox).
+//   Everyone logged in: check a to-do or Circles item off or back on, add a to-do, and add or tick checklist steps.
 //   Owner (owner passcode): add, edit and delete to-dos, calendar items, Circles items and links,
 //   and put deleted things back. Deleted things wait in "trash" for 30 days.
-const NOPE = 'Only the CEO can change that. You can check off to-dos and send suggestions.';
+const NOPE = 'Only the CEO can change that. You can check things off, add to-dos and add checklist steps.';
 const OWNER_LISTS = ['tasks', 'events', 'coe', 'links'];
-const CLASS_LISTS = ['tasks', 'coe', 'suggestions']; // lists a classmate may touch (suggestions goes away in a later step)
+const KNOWN_LISTS = [...OWNER_LISTS, 'suggestions']; // suggestions are no longer accepted, but the name is still a real list
 
 // Ticking a Circles item records who did it and when; un-ticking clears that.
 function stampDone(collection, before, item, who) {
@@ -14,6 +14,63 @@ function stampDone(collection, before, item, who) {
   if (item.done) return { ...item, doneBy: who, doneAt: new Date().toISOString() };
   const { doneBy, doneAt, ...rest } = item;
   return rest;
+}
+
+// Classmate (or owner) operations on a to-do. Each one reads the newest saved task first,
+// so ticking one step never wipes out another person's tick.
+async function taskOp(body, who, res) {
+  const { op } = body;
+  if (op === 'add-task') {
+    const sent = body.item;
+    if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
+    if (await getItem('tasks', sent.id)) return send(res, 409, { error: 'That to-do already exists.' });
+    // Only these fields are kept, whatever else was sent.
+    const item = {
+      id: sent.id,
+      title: typeof sent.title === 'string' ? sent.title.trim().slice(0, 160) : '',
+      dept: sent.dept,
+      due: sent.due || null,
+      owner: typeof sent.owner === 'string' ? sent.owner.trim().slice(0, 80) : '',
+      desc: typeof sent.desc === 'string' ? sent.desc.trim().slice(0, 2000) : '',
+      done: false,
+      steps: [],
+      addedBy: who,
+      createdAt: new Date().toISOString(),
+    };
+    const problem = checkItem('tasks', item);
+    if (problem) return send(res, 400, { error: problem });
+    return send(res, 200, { item: await saveItem('tasks', item, who, 'added') });
+  }
+  if (op === 'add-step' || op === 'tick-step') {
+    const task = typeof body.taskId === 'string' ? await getItem('tasks', body.taskId) : null;
+    if (!task) return send(res, 404, { error: 'That to-do was removed.' });
+    const steps = Array.isArray(task.steps) ? task.steps : [];
+    let next, action;
+    if (op === 'add-step') {
+      const st = body.step;
+      if (!st || typeof st !== 'object' || typeof st.id !== 'string') return send(res, 400, { error: 'Missing step.' });
+      if (steps.some((x) => x.id === st.id)) return send(res, 409, { error: 'That step already exists.' });
+      const text = typeof st.text === 'string' ? st.text.trim() : '';
+      next = { ...task, steps: [...steps, { id: st.id, text, done: false, addedBy: who }] };
+      action = 'added a step to';
+    } else {
+      if (typeof body.done !== 'boolean') return send(res, 400, { error: 'Say whether the step is done.' });
+      if (!steps.some((x) => x.id === body.stepId)) return send(res, 404, { error: 'That step was removed.' });
+      next = {
+        ...task,
+        steps: steps.map((x) => {
+          if (x.id !== body.stepId) return x;
+          const { doneBy, doneAt, ...rest } = x;
+          return body.done ? { ...rest, done: true, doneBy: who, doneAt: new Date().toISOString() } : { ...rest, done: false };
+        }),
+      };
+      action = body.done ? 'ticked a step on' : 'unticked a step on';
+    }
+    const problem = checkItem('tasks', next);
+    if (problem) return send(res, 400, { error: problem });
+    return send(res, 200, { item: await saveItem('tasks', next, who, action) });
+  }
+  return send(res, 400, { error: 'Unknown action.' });
 }
 
 export default async function handler(req, res) {
@@ -45,29 +102,14 @@ export default async function handler(req, res) {
       return send(res, 200, { item: back });
     }
 
+    if (body.op) return await taskOp(body, who, res);
+
     const { collection, item: sent } = body;
     if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
     // Unknown list names are refused before storage is touched.
-    if (!OWNER_LISTS.includes(collection) && !CLASS_LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
+    if (!KNOWN_LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
 
     if (!owner) {
-      if (collection === 'suggestions') {
-        if (await getItem('suggestions', sent.id)) return send(res, 409, { error: 'That suggestion was already sent.' });
-        // Only these fields are kept, whatever else was sent.
-        const item = {
-          id: sent.id,
-          title: typeof sent.title === 'string' ? sent.title.trim().slice(0, 160) : '',
-          dept: sent.dept,
-          due: sent.due || null,
-          desc: typeof sent.desc === 'string' ? sent.desc.trim().slice(0, 2000) : '',
-          createdAt: new Date().toISOString(),
-        };
-        const problem = checkItem('suggestions', item);
-        if (problem) return send(res, 400, { error: problem });
-        const saved = await saveItem('suggestions', item, who, 'suggested');
-        return send(res, 200, { item: saved });
-      }
-
       // Check a to-do or a Circles item off or back on, and nothing else.
       const keys = Object.keys(sent).filter((k) => k !== 'id');
       if (!['tasks', 'coe'].includes(collection) || keys.length !== 1 || keys[0] !== 'done' || typeof sent.done !== 'boolean') return send(res, 403, { error: NOPE });

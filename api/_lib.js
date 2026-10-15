@@ -15,6 +15,7 @@ const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
 const SESSION_DAYS = 40;
 const MAX_ITEM_BYTES = 8000;
+const MAX_STEPS = 30;
 
 // ---------- HTTP ----------
 
@@ -136,7 +137,7 @@ export function cleanWho(who) {
 
 const set = (...xs) => Object.fromEntries(xs.map((x) => [x, true]));
 const ALLOWED = {
-  dept: set('racquets', 'apparel', 'tech', 'finance', 'sales', 'firm'),
+  dept: set('ceo', 'ops', 'finance', 'marketing', 'sales', 'tech', 'hr', 'firm', 'racquets', 'apparel'), // racquets and apparel are old ids, kept so unmoved items still work
   kind: set('deadline', 'competition', 'tradeshow', 'trip', 'event', 'internal', 'dayoff'),
   status: set('confirmed', 'projected', 'teacher', 'internal', 'nodate'),
 };
@@ -161,8 +162,17 @@ export function checkItem(collection, item) {
     if (item[k] !== undefined && item[k] !== null && typeof item[k] !== 'string') return `“${k}” must be text.`;
   }
   if ('done' in item && typeof item.done !== 'boolean') return '“done” must be true or false.';
+  if (collection === 'tasks' && item.steps !== undefined) {
+    if (!Array.isArray(item.steps) || item.steps.length > MAX_STEPS) return `A to-do can have at most ${MAX_STEPS} checklist steps.`;
+    for (const st of item.steps) {
+      if (!st || typeof st !== 'object' || Array.isArray(st)) return 'Bad checklist step.';
+      if (typeof st.id !== 'string' || !/^[a-z0-9-]{1,40}$/i.test(st.id)) return 'Bad checklist step id.';
+      if (typeof st.text !== 'string' || !st.text.trim() || st.text.length > 200) return 'Each checklist step needs some text (up to 200 characters).';
+      if (typeof st.done !== 'boolean') return 'Each checklist step must be done or not done.';
+    }
+  }
   if (collection !== 'posts') {
-    if (!Object.hasOwn(ALLOWED.dept, item.dept)) return 'Pick one of the six teams.';
+    if (!Object.hasOwn(ALLOWED.dept, item.dept)) return 'Pick one of the offices.';
     if (collection === 'events' && item.kind !== undefined && !Object.hasOwn(ALLOWED.kind, item.kind)) return 'Unknown kind of calendar item.';
     if (collection === 'events' && item.status !== undefined && !Object.hasOwn(ALLOWED.status, item.status)) return 'Unknown date status.';
     if (collection === 'coe' && item.points !== undefined && typeof item.points !== 'number') return 'Points must be a number.';
