@@ -95,7 +95,7 @@ function todoSidebar() {
           : '<p class="hint">Nothing to do here. Nice.</p>'}
         ${S.owner
           ? `<button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>
-             <a class="trash-link" href="#deleted">Recently deleted (${S.trash.length})</a>`
+             <a class="trash-link" href="#deleted">Recently deleted (${visibleTrash().length})</a>`
           : `<a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>`}
       </div>
     </aside>`;

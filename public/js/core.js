@@ -112,6 +112,7 @@ async function refresh(quiet) {
     const first = !S.loaded;
     S.events = data.events || []; S.tasks = data.tasks || []; S.suggestions = data.suggestions || []; S.links = data.links || [];
     S.trash = data.trash || [];
+    if (S.owner && !('trash' in data)) ownerLost(); // the owner login ran out since the last load
     S.loaded = true; S.loadError = null;
     renderTabs(); render(); // an open form is left alone: syncDrawer skips it
     if (drawerState) syncDrawer();
@@ -171,11 +172,11 @@ async function removeItem(collection, id) {
   renderTabs(); render();
   try {
     const { trash } = await api(`/api/item?collection=${encodeURIComponent(collection)}&id=${encodeURIComponent(id)}&who=${encodeURIComponent(S.me)}`, { method: 'DELETE' });
-    S.trash.push(trash);
+    S.trash = S.trash.filter((t) => t.id !== trash.id).concat(trash);
     renderTabs(); render();
     toast('Deleted', false, { label: 'Undo', run: () => restoreItem(trash.id).catch(() => {}) });
   } catch (e) {
-    if (before) putLocal(collection, before);
+    if (before && e.status !== 404) putLocal(collection, before); // a 404 means it is already gone, so leave it gone
     renderTabs(); render();
     if (e.status === 403) ownerLost(); else toast("Didn't delete: " + e.message, true);
     throw e;
@@ -204,7 +205,8 @@ function ownerLost() {
   S.owner = false;
   fallBackFromOwnerView();
   renderTabs(); render(); paintOwnerTag();
-  toast('Owner mode ended on this device. Log out and back in with the owner passcode.', true);
+  if (drawerState && !drawerIsEditing()) paintDrawer(); // an open popup loses its owner buttons
+  toast('Owner mode ended on this device. Log out and back in with the owner passcode.' + (drawerIsEditing() ? ' Your typed text is still here.' : ''), true);
 }
 
 // Check off or un-check, with an Undo button in the message.

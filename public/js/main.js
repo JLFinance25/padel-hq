@@ -54,7 +54,7 @@ $('#logout-btn').addEventListener('click', async () => {
 // The yellow "Owner mode" tag and the button to leave it (only while in owner mode).
 function paintOwnerTag() {
   $('#owner-slot').innerHTML = S.owner
-    ? `<span class="owner-pill">Owner mode</span><button class="btn btn-ghost leave-owner" type="button" data-act="leave-owner" aria-label="Leave owner mode">${icon('exit')}<span class="leave-text">Leave owner mode</span></button>`
+    ? `<span class="owner-pill">Owner mode</span><button class="btn btn-ghost leave-owner" type="button" data-act="leave-owner" aria-label="Leave owner mode">${icon('eye')}<span class="leave-text">Leave owner mode</span></button>`
     : '';
 }
 
@@ -191,7 +191,7 @@ document.addEventListener('click', async (e) => {
   if (tick) {
     e.preventDefault();
     const [c, id] = tick.dataset.tick.split(':');
-    toggleDone(c, id).then(() => { if (drawerState) paintDrawer(); }).catch(() => {});
+    toggleDone(c, id).then(() => { if (drawerState && !drawerIsEditing()) paintDrawer(); }).catch(() => {});
     return;
   }
   const el = e.target.closest('[data-act]');
@@ -224,7 +224,7 @@ document.addEventListener('click', async (e) => {
     case 'drawer-tick': {
       const st = drawerState;
       if (!st || !st.id) break;
-      try { await toggleDone(st.collection, st.id); if (drawerState === st) paintDrawer(); } catch { /* shown */ }
+      try { await toggleDone(st.collection, st.id); if (drawerState === st && !drawerIsEditing()) paintDrawer(); } catch { /* shown */ }
       break;
     }
   }

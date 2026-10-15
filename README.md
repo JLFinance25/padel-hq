@@ -9,7 +9,10 @@ Kept deliberately simple: one list of what's coming up, a month calendar, and a 
 - **Team tabs:** Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Each is a to-do list with a description, an owner and a due date.
 - **Add to-do:** add a to-do for any team from one form, with every team's open to-dos listed underneath.
 
-Everyone who has the class passcode sees and edits the same data, and anyone can add, edit, delete, check off and assign to-dos.
+**Who can do what**
+
+- **Classmates** log in with the class passcode and their first name. They can see everything, check off to-dos (the site remembers who did it), and suggest new to-dos. Suggestions wait for the CEO.
+- **The CEO** logs in with the owner passcode. That adds owner mode, where they can add, edit and delete to-dos and calendar items. Deleted things wait in **Recently deleted** for 30 days, and the CEO can put them back from there. The CEO can leave owner mode at any time and stay logged in as a classmate.
 
 ## Privacy
 
@@ -27,7 +30,7 @@ This repo holds **code only**. The firm's calendar, to-dos and names live in the
 
 1. Import this GitHub repo at vercel.com/new. Leave the framework as "Other". No build command is needed.
 2. In the project, open **Storage**, add **Upstash for Redis** (free plan) and connect it to the project. This adds the database settings automatically.
-3. In **Settings → Environment Variables**, add `CLASS_PASSCODE` with the passcode the class will use. Optionally add `SESSION_SECRET` (any long random text).
+3. In **Settings → Environment Variables**, add `CLASS_PASSCODE` with the passcode the class will use, and `OWNER_PASSCODE` with the CEO's passcode (set these only in Vercel, never in a file in this repo). Optionally add `SESSION_SECRET` (any long random text).
 4. Redeploy, open the site and enter the passcode.
 
 Changing `CLASS_PASSCODE` logs everyone out, which is how you lock someone out.

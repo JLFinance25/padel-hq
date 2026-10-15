@@ -69,17 +69,27 @@ function viewDept(id) {
 const TRASH_DAYS = 30;
 const TRASH_KIND = { tasks: 'To-do', events: 'Calendar item', links: 'Link', coe: 'Circles item' };
 
+// The server only clears old entries on the next delete, so hide anything past 30 days here.
+const TRASH_DAY = 86400000;
+const trashAge = (t) => Math.floor((Date.now() - new Date(t.deletedAt)) / TRASH_DAY); // NaN if the date is bad
+function visibleTrash() {
+  return S.trash.filter((t) => !(Date.now() - new Date(t.deletedAt) > TRASH_DAYS * TRASH_DAY)) // a bad date (NaN) stays visible
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+
 function viewDeleted() {
-  const day = 86400000;
-  const list = [...S.trash].sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+  const list = visibleTrash();
   const rows = list.map((t) => {
-    const age = Math.max(0, Math.floor((Date.now() - new Date(t.deletedAt)) / day));
+    const raw = trashAge(t);
+    const known = Number.isFinite(raw);
+    const age = Math.max(0, raw);
     const left = Math.max(0, TRASH_DAYS - age);
     const when = age < 1 ? ago(t.deletedAt) : age === 1 ? '1 day ago' : age + ' days ago';
     const leftText = left === 0 ? 'Clears today' : left === 1 ? '1 day left' : left + ' days left';
+    const timing = known ? ` · ${esc(when)} · ${esc(leftText)}` : '';
     return `<li class="trash-row">
       <span class="trash-info"><span class="r-title">${esc(t.title)}</span>
-        <span class="r-desc">${esc(TRASH_KIND[t.collection] || 'Item')} · deleted by ${esc(t.deletedBy || 'Someone')} · ${esc(when)} · ${esc(leftText)}</span></span>
+        <span class="r-desc">${esc(TRASH_KIND[t.collection] || 'Item')} · deleted by ${esc(t.deletedBy || 'Someone')}${timing}</span></span>
       <button class="btn btn-sm" type="button" data-act="restore" data-id="${esc(t.id)}">Put back</button>
     </li>`;
   });
