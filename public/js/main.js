@@ -208,6 +208,12 @@ document.addEventListener('click', async (e) => {
     case 'open-day': openDay(el.dataset.day); break;
     case 'close': closeDrawerSafely(); break;
     case 'leave-owner': leaveOwner(); break;
+    case 'edit': startEdit(); break;
+    case 'cancel-edit': cancelEdit(); break;
+    case 'delete': deleteFromDrawer(); break;
+    case 'add-todo': openNew('tasks', S.todoTeam !== 'all' ? { dept: S.todoTeam } : {}); break;
+    case 'add-event': openNew('events'); break;
+    case 'add-on-day': openNew('events', { date: el.dataset.day }); break;
     case 'retry': S.loadError = null; render(); refresh(); break;
     case 'drawer-tick': {
       const st = drawerState;
@@ -220,13 +226,19 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   if (e.target.dataset?.act === 'todo-team') { S.todoTeam = e.target.value; render(); }
+  if (e.target.id === 'f-status') showStatusHelp(e.target);
 });
 
+// Typing again clears the form's error line.
+document.addEventListener('input', (e) => {
+  if (e.target.form && e.target.form.id === 'edit-form') { const box = $('#form-error'); if (box) box.textContent = ''; }
+});
 
 document.addEventListener('submit', (e) => {
   const kind = e.target.dataset.form;
   if (kind === 'suggest') { e.preventDefault(); sendSuggestion(e.target); }
   else if (kind === 'name') { e.preventDefault(); saveName(e.target); }
+  else if (kind === 'edit') { e.preventDefault(); saveDrawer(); }
 });
 
 $('#scrim').addEventListener('click', closeDrawerSafely);

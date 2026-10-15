@@ -44,6 +44,7 @@ function calendarHtml() {
         <h1 class="cal-title"><b>${first.toLocaleDateString('en-US', { month: 'long' })}</b> ${first.getFullYear()}</h1>
         <div class="cal-nav">
           <button class="icon-btn round" data-act="prev" aria-label="Previous month">${icon('left')}</button>
+          ${S.owner ? `<button class="btn btn-pill" data-act="add-event">${icon('plus')}Add</button>` : ''}
           <button class="btn btn-pill" data-act="today">Today</button>
           <button class="icon-btn round" data-act="next" aria-label="Next month">${icon('right')}</button>
         </div>
@@ -92,7 +93,9 @@ function todoSidebar() {
       <div class="todos-body">
         ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list">${items.map((t) => todoRow(t)).join('')}</ul>`).join('')
           : '<p class="hint">Nothing to do here. Nice.</p>'}
-        ${S.owner ? '' : `<a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>`}
+        ${S.owner
+          ? `<button class="btn btn-wide" type="button" data-act="add-todo">${icon('plus')}Add to-do</button>`
+          : `<a class="btn btn-wide" href="#suggest">${icon('plus')}Suggest a to-do</a>`}
       </div>
     </aside>`;
 }
