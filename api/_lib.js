@@ -101,6 +101,19 @@ function cookieValid(req, name, key) {
 
 export const isLoggedIn = (req) => cookieValid(req, 'phq_session', secret());
 
+// Owner mode (the CEO only): a second passcode, OWNER_PASSCODE, set in Vercel. It adds its own cookie, so
+// changing OWNER_PASSCODE logs out only the owner's devices. No OWNER_PASSCODE means owner mode is off.
+function ownerSecret() {
+  const pass = process.env.OWNER_PASSCODE;
+  const base = secret();
+  if (!pass || !base || pass.trim() === String(process.env.CLASS_PASSCODE).trim()) return null;
+  return crypto.createHash('sha256').update(base).update('|owner|' + pass).digest();
+}
+export const ownerReady = () => !!ownerSecret();
+export const ownerPasscodeMatches = (given) => ownerReady() && matches(given, process.env.OWNER_PASSCODE);
+export const ownerCookie = (req) => makeCookie(req, 'phq_owner', ownerSecret());
+export const isOwner = (req) => isLoggedIn(req) && cookieValid(req, 'phq_owner', ownerSecret());
+
 // Returns true if the request may continue; otherwise it has already answered.
 export function requireLogin(req, res) {
   if (!process.env.CLASS_PASSCODE) {

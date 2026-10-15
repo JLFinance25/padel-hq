@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Shared calendar and department to-do lists for our Virtual Enterprise firm.",
   "scripts": {
-    "dev": "node dev-server.mjs"
+    "dev": "node dev-server.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "engines": { "node": ">=18" }
 }
