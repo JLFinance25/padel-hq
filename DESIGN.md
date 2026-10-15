@@ -290,6 +290,8 @@ components:
     padding: "10px 16px"
 ---
 
+Note (Oct 2026): parts of this guide describe the old departures-board look; public/styles.css is the source of truth for the current look.
+
 # Design System: Padel HQ
 
 ## Overview
@@ -506,7 +508,7 @@ A white panel with weekday headings in Big Shoulders labels. Day numbers are Big
 At the top right of each team page: a tiny "DONE" label over the done count in 30px flip tiles ("3/5"), with one small cell per item underneath, filled Court Green when done. On phones it sits under the heading, left-aligned.
 
 ### Adding to-dos
-Anyone can add, edit and delete to-dos. On a team page a green "+ Add to-do" button sits at the right under the heading (full width on phones) and opens the panel's New to-do form for that team. The "+ Add to-do" tab, last after the team tabs, is a page with the same form laid flat in a white panel (to-do; team, due and owner in one row of three that stacks on phones; description) and every team's open to-dos listed under it as ruled rows, each team heading linking to its tab. The team picked last stays picked for the next to-do.
+Anyone who is logged in can add, edit and delete to-dos and checklist steps. They start from the "Add task" button on an office page, which opens the panel's New to-do form for that office.
 
 ### Toast
 A small navy bar at the bottom center with a check icon and a short message, sliding up into place. An "Undo" action shows in Ball Yellow, underlined. Errors use Clay Red.

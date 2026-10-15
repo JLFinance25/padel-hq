@@ -20,17 +20,18 @@ Built around how this firm is actually split up and how VE actually scores firms
 
 ## Operating Context
 
-- Teams (tabs): Racquets · Apparel & Booth · Technology · Finance & Compliance · Sales & Marketing · All-firm. Teams are by the work, not by officer title.
+- Offices (tabs): CEO office · Operations · Finance & Compliance · Marketing · Sales · Technology · HR · All-firm. Items still on the old team ids show under Unsorted.
 - VE's year runs in six Circles of Excellence periods (Aug–Oct, Nov, Dec, Jan–Feb, Mar–Apr, May) plus fall and spring bonus windows.
 - Big moments: the national online competitions, the regional trade show and business plan competition, and the Youth Business Summit in April.
-- Anyone with the class passcode can view and edit everything, to-dos included. Changes are logged by the first name each person types in.
+- Everyone logged in can add, edit and delete everything, to-dos included. There is no owner or officer mode.
+- Deleted things wait in Recently deleted for 30 days, and anyone can put them back.
+- Changes show names. Each change is logged with the first name the person typed at login, and edits keep the old values in the change log.
 
 ## Capabilities and Constraints
 
 - Plain HTML, CSS and JavaScript with no build step, so a classmate can edit it. Small Vercel serverless functions; Upstash Redis storage.
 - The code repository is public. Firm data (dates, to-dos, names) lives only in the database behind the passcode and never in the code.
 - Must work well on a phone.
-- Firm name not chosen yet; "Padel HQ" is a working name.
 
 ## Brand Commitments
 
@@ -43,6 +44,6 @@ Real season data (VE dates and team to-dos) is added in the app and lives only i
 ## Product Principles
 
 1. Say how sure a date is. Never show a guess as a fact.
-2. Answer "what's next" within seconds of opening. Keep it simple: one list, a month view and team lists, nothing extra.
+2. Answer "what's next" within seconds of opening. Keep it simple: Home, Offices, Mine, Circles, nothing extra.
 3. Shared and honest: every change shows who made it.
 4. Simple enough for a classmate to change the code.
