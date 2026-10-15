@@ -16,18 +16,56 @@ function linkCards(list, empty) {
   }).join('')}</div>`;
 }
 
+// The office's open to-dos in groups, like the Home list.
+function taskGroups(open) {
+  const n = (t) => daysUntil(t.due);
+  return [
+    ['Late', 'late', open.filter((t) => t.due && n(t) < 0)],
+    ['Next 7 days', '', open.filter((t) => t.due && n(t) >= 0 && n(t) <= 7)],
+    ['Later', '', open.filter((t) => t.due && n(t) > 7)],
+    ['No date', '', open.filter((t) => !t.due)],
+  ].filter((g) => g[2].length);
+}
+
+// One calendar item on an office page: tap it for the popup. The certainty label keeps its status color.
+function officeEventRow(e) {
+  const st = e.status || (e.date ? 'internal' : 'nodate');
+  const label = Object.hasOwn(STATUSES, st) ? STATUSES[st] : st;
+  let when = 'No date yet';
+  if (e.date) when = fmt(e.date, { weekday: 'short', month: 'short', day: 'numeric' }) + (e.end && e.end > e.date ? ' to ' + fmt(e.end, { month: 'short', day: 'numeric' }) : '');
+  return `<li class="cal-item"><button class="todo-open" data-open="events:${esc(e.id)}">
+    <span class="todo-title">${esc(e.title)}</span>
+    <span class="todo-sub">${esc(when)} · <span class="pill s-${esc(st)}">${esc(label)}</span></span>
+  </button></li>`;
+}
+
 function viewDept(id) {
   const d = dept(id);
   const links = S.links.filter((l) => l.dept === id).sort((a, b) => a.title.localeCompare(b.title));
-  const todos = S.tasks.filter((t) => t.dept === id && !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const mine = S.tasks.filter((t) => t.dept === id);
+  const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || a.title.localeCompare(b.title);
+  const open = mine.filter((t) => !t.done).sort(byDue);
+  const done = mine.filter((t) => t.done).sort(byDue);
+  const groups = taskGroups(open);
+  const showDone = S.doneOpen === id;
+  const t = todayKey();
+  const events = S.events.filter((e) => e.dept === id && (!e.date || (e.end && e.end > e.date ? e.end : e.date) >= t))
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999') || a.title.localeCompare(b.title));
   return `
     <div class="page-head"><div><h1>${esc(d.name)}</h1><p>${esc(d.blurb)}</p></div></div>
+    <div class="office-actions"><button class="btn btn-primary" type="button" data-act="add-task" data-dept="${esc(id)}">${icon('plus')}Add task</button></div>
+    <h2 class="group-title">To-dos (${open.length})</h2>
+    ${groups.length ? groups.map(([title, cls, items]) => `<h3 class="todo-group ${cls}">${title} (${items.length})</h3><ul class="todo-list boxed">${items.map((x) => todoRow(x, false)).join('')}</ul>`).join('')
+      : '<p class="hint">No open to-dos. Add the first one above.</p>'}
+    ${done.length ? `<div class="done-head"><h2 class="group-title">Done (${done.length})</h2>
+      <button class="btn btn-sm" type="button" data-act="toggle-done" data-id="${esc(id)}" aria-expanded="${showDone}">${showDone ? 'Hide' : 'Show'}</button></div>
+      ${showDone ? `<ul class="todo-list boxed">${done.map((x) => todoRow(x, false)).join('')}</ul>` : ''}` : ''}
+    <h2 class="group-title">Calendar items for this office</h2>
+    ${events.length ? `<ul class="todo-list boxed">${events.map(officeEventRow).join('')}</ul>` : '<p class="hint">Nothing coming up for this office.</p>'}
     <h2 class="group-title">Quick links</h2>
     ${linkCards(links.filter((l) => l.section !== 'learn'), 'No links yet. Ask the CEO to add your office’s spreadsheets and accounts.')}
     <h2 class="group-title">Learn</h2>
-    ${linkCards(links.filter((l) => l.section === 'learn'), 'No learning material yet.')}
-    <h2 class="group-title">${esc(d.name)} to-dos (${todos.length})</h2>
-    ${todos.length ? `<ul class="todo-list boxed">${todos.map((t) => todoRow(t, false)).join('')}</ul>` : '<p class="hint">No open to-dos.</p>'}`;
+    ${linkCards(links.filter((l) => l.section === 'learn'), 'No learning material yet.')}`;
 }
 
 // ---------- Unsorted: anything not on one of the eight offices ----------
@@ -45,7 +83,7 @@ const unsortedCount = () => { const u = unsortedItems(); return u.tasks.length +
 // "Was Racquets, probably Operations" for an item still on an old team.
 function unsortedHint(id) {
   const d = dept(id);
-  const maybe = LEGACY[id] ? dept(LEGACY[id]).name : '';
+  const maybe = Object.hasOwn(LEGACY, id) ? dept(LEGACY[id]).name : '';
   return (d.was ? 'Was ' + d.was : 'No office yet') + (maybe ? ', probably ' + maybe : '');
 }
 

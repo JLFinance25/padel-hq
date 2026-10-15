@@ -16,7 +16,7 @@ const DEPTS = [
 // Unsorted until someone moves them (nothing is changed in the saved data).
 const LEGACY = { racquets: 'ops', apparel: 'marketing' };
 const LEGACY_NAMES = { racquets: 'Racquets', apparel: 'Apparel & Booth' };
-const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '', was: LEGACY_NAMES[id] || '' };
+const dept = (id) => DEPTS.find((d) => d.id === id) || { id: '', name: 'Unsorted', code: '—', blurb: '', was: Object.hasOwn(LEGACY_NAMES, id) ? LEGACY_NAMES[id] : '' };
 const isOffice = (id) => DEPTS.some((d) => d.id === id);
 // "Operations", or "Unsorted (was Racquets)" for an item still on an old team.
 const deptLabel = (id) => { const d = dept(id); return d.was ? `${d.name} (was ${d.was})` : d.name; };
@@ -52,6 +52,7 @@ const S = {
   view: 'home', office: '', loaded: false,
   month: startOfMonth(new Date()), sel: null,
   todoTeam: 'all', // the to-do sidebar's department filter
+  doneOpen: '',    // the office whose "Done" list is showing
   me: store('phq_me') || '', // first name, so check-offs show who did them
   trash: [],       // recently deleted items (anyone logged in can put them back)
 };
@@ -230,6 +231,143 @@ async function toggleDone(collection, id) {
     run: () => updateItem(collection, id, { done: !saved.done }).then(() => toast('Undone')).catch(() => {}),
   });
   return saved;
+}
+
+// ---------- To-dos and their checklists ----------
+// Each one changes the page first, then tells the server, and undoes itself with a message if the server says no.
+
+const MAX_STEPS = 30;
+const stepsOf = (t) => (t && Array.isArray(t.steps) ? t.steps : []);
+const repaintAll = () => { renderTabs(); render(); if (drawerState) syncDrawer(); };
+
+function postItem(body) {
+  return api('/api/item', { method: 'POST', body: JSON.stringify({ ...body, who: S.me }) });
+}
+
+// A new to-do. fields: title, dept, due, owner, desc.
+async function addTask(fields) {
+  const id = newId(fields.title);
+  const sent = { id, title: fields.title, dept: fields.dept, due: fields.due || null, owner: fields.owner || '', desc: fields.desc || '' };
+  putLocal('tasks', { ...sent, done: false, steps: [], addedBy: S.me });
+  repaintAll();
+  try {
+    const { item } = await postItem({ op: 'add-task', item: sent });
+    putLocal('tasks', item);
+    repaintAll();
+    return item;
+  } catch (e) {
+    S.tasks = S.tasks.filter((x) => x.id !== id);
+    repaintAll();
+    toast("Didn't save: " + e.message, true);
+    throw e;
+  }
+}
+
+// What to do when a checklist change fails: say why, and drop the to-do if it is gone.
+function stepFailed(taskId, e, undo) {
+  if (e.status === 404 && /to-do/.test(e.message)) S.tasks = S.tasks.filter((x) => x.id !== taskId); else undo();
+  repaintAll();
+  toast(e.status === 404 && /to-do/.test(e.message) ? 'Someone deleted this to-do.' : "Didn't save: " + e.message, true);
+}
+
+// Add a step at the end of the checklist.
+async function addStep(taskId, text) {
+  const task = findItem('tasks', taskId);
+  if (!task) { toast('Someone deleted this to-do.', true); throw new Error('gone'); }
+  text = String(text).trim().slice(0, 200);
+  if (!text) throw new Error('empty');
+  if (stepsOf(task).length >= MAX_STEPS) { toast("This to-do's checklist is full (30 steps).", true); throw new Error('full'); }
+  // Step ids are at most 40 characters, so the words are cut short before newId adds its ending.
+  let id = newId(text.slice(0, 30));
+  while (stepsOf(task).some((x) => x.id === id)) id = newId(text.slice(0, 30));
+  putLocal('tasks', { ...task, steps: [...stepsOf(task), { id, text, done: false, addedBy: S.me }] });
+  repaintAll();
+  try {
+    const { item } = await postItem({ op: 'add-step', taskId, step: { id, text } });
+    putLocal('tasks', item);
+    repaintAll();
+    return item;
+  } catch (e) {
+    stepFailed(taskId, e, () => { const cur = findItem('tasks', taskId); if (cur) putLocal('tasks', { ...cur, steps: stepsOf(cur).filter((x) => x.id !== id) }); });
+    throw e;
+  }
+}
+
+// Tick a step, or un-tick it. Ticking the last one does not tick the to-do itself.
+async function tickStep(taskId, stepId) {
+  const task = findItem('tasks', taskId);
+  const step = stepsOf(task).find((x) => x.id === stepId);
+  if (!step) { toast('That step was removed.', true); refresh(true); throw new Error('gone'); }
+  const done = !step.done;
+  const mark = (s) => stepsOf(findItem('tasks', taskId)).map((x) => (x.id === stepId ? s : x));
+  const { doneBy, doneAt, ...plain } = step;
+  putLocal('tasks', { ...task, steps: mark(done ? { ...plain, done: true, doneBy: S.me, doneAt: new Date().toISOString() } : { ...plain, done: false }) });
+  repaintAll();
+  try {
+    const { item } = await postItem({ op: 'tick-step', taskId, stepId, done });
+    putLocal('tasks', item);
+    repaintAll();
+    return item;
+  } catch (e) {
+    stepFailed(taskId, e, () => { const cur = findItem('tasks', taskId); if (cur) putLocal('tasks', { ...cur, steps: mark(step) }); });
+    if (e.status === 404) refresh(true);
+    throw e;
+  }
+}
+
+// Replace the whole checklist with a shorter or re-ordered one (one step removed, or two swapped).
+// The server only accepts the steps exactly as saved, so this always starts from the newest copy.
+async function saveSteps(taskId, build) {
+  await refresh(true);
+  const task = findItem('tasks', taskId);
+  if (!task) { toast('Someone deleted this to-do.', true); throw new Error('gone'); }
+  const before = stepsOf(task);
+  const next = build(before);
+  if (!next) throw new Error('nothing to do');
+  putLocal('tasks', { ...task, steps: next });
+  repaintAll();
+  try {
+    const { item } = await postItem({ collection: 'tasks', item: { id: taskId, steps: next }, patch: true });
+    putLocal('tasks', item);
+    repaintAll();
+    return item;
+  } catch (e) {
+    if (e.status === 400) { // someone changed the checklist in between
+      putLocal('tasks', { ...task, steps: before });
+      repaintAll();
+      toast('The checklist changed while you were looking. It is up to date now, so try again.', true);
+      refresh(true);
+    } else stepFailed(taskId, e, () => putLocal('tasks', { ...task, steps: before }));
+    throw e;
+  }
+}
+
+// Remove one step (after asking). The message has Undo, which adds the words back at the end of the list.
+async function removeStep(taskId, stepId) {
+  const step = stepsOf(findItem('tasks', taskId)).find((x) => x.id === stepId);
+  if (!step) return;
+  if (!confirm(`Remove this step?\n\n"${step.text}"`)) return;
+  let gone = null;
+  try {
+    await saveSteps(taskId, (steps) => {
+      gone = steps.find((x) => x.id === stepId);
+      return gone ? steps.filter((x) => x.id !== stepId) : null; // someone else already removed it
+    });
+  } catch (e) { if (e.message === 'nothing to do') toast('That step was already removed.'); return; }
+  toast('Step removed', false, { label: 'Undo', run: () => addStep(taskId, gone.text).then(() => toast('Step put back')).catch(() => {}) });
+}
+
+// Move a step up (-1) or down (+1).
+async function moveStep(taskId, stepId, dir) {
+  try {
+    await saveSteps(taskId, (steps) => {
+      const i = steps.findIndex((x) => x.id === stepId), j = i + dir;
+      if (i < 0 || j < 0 || j >= steps.length) return null;
+      const out = steps.slice();
+      [out[i], out[j]] = [out[j], out[i]];
+      return out;
+    });
+  } catch { /* the message is already shown */ }
 }
 
 function findItem(collection, id) { return (S[collection] || []).find((x) => x.id === id); }

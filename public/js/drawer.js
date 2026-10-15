@@ -43,6 +43,7 @@ function openDay(k) {
 function closeDrawer() {
   if (!drawerState) return;
   drawerState = null;
+  delete $('#drawer').dataset.paintKey;
   $('#drawer').classList.remove('editing');
   fitDrawer();
   $('#drawer').hidden = true;
@@ -68,7 +69,8 @@ function closeDrawerSafely() {
 
 // After a background refresh: show the newest copy, or close if it's gone. A form is never repainted.
 function syncDrawer() {
-  if (!drawerState || drawerIsEditing()) return;
+  if (!drawerState) return;
+  if (drawerIsEditing()) { paintStepsEdit(); return; } // only the step buttons change; what was typed stays
   if (drawerState.id && !findItem(drawerState.collection, drawerState.id)) { closeDrawer(); return; }
   paintDrawer();
 }
@@ -77,7 +79,26 @@ const currentItem = () => (drawerState && drawerState.id ? findItem(drawerState.
 
 const fact = (label, value, cls = '') => `<div><span class="fact-label">${esc(label)}</span><span class="fact-val ${cls}">${value}</span></div>`;
 
+// Repaint the popup but keep the scroll place, the focused button and any half-typed step.
 function paintDrawer() {
+  const d = $('#drawer');
+  const body = $('.drawer-body', d);
+  const same = body && d.dataset.paintKey === paintKey();
+  const scroll = same ? body.scrollTop : 0;
+  const focus = same && d.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  const typed = same ? $('#step-text', d) : null;
+  const draft = typed ? typed.value : '';
+  paintDrawerNow();
+  d.dataset.paintKey = paintKey();
+  const nb = $('.drawer-body', d);
+  if (nb && same) nb.scrollTop = scroll;
+  const box = $('#step-text', d);
+  if (box && draft) box.value = draft;
+  if (focus && d.contains(document.querySelector(focus)) ) document.querySelector(focus).focus({ preventScroll: true });
+}
+const paintKey = () => (drawerState ? [drawerState.day || '', drawerState.collection || '', drawerState.id || '', drawerState.editing ? 'edit' : 'view'].join('|') : '');
+
+function paintDrawerNow() {
   const d = $('#drawer');
   const close = `<button class="icon-btn" data-act="close" aria-label="Close">${icon('x')}</button>`;
   d.classList.toggle('editing', drawerIsEditing());
@@ -121,7 +142,8 @@ function paintDrawer() {
     const inText = item.done ? 'Done' : !item.due ? 'No date yet' : n < 0 ? `${-n === 1 ? '1 day' : -n + ' days'} late` : relDays(n);
     const inCls = item.done ? 'green' : n !== null && n < 0 ? 'red' : n !== null && n <= 3 ? 'amber' : '';
     facts = fact('Due', esc(item.due ? fmt(item.due, { weekday: 'long', month: 'long', day: 'numeric' }) : 'No date yet'))
-      + fact('Status', esc(inText), inCls) + fact('Office', esc(deptLabel(item.dept))) + fact('Who', esc(item.owner || 'Not assigned yet'));
+      + fact('Status', esc(inText), inCls) + fact('Office', esc(deptLabel(item.dept))) + fact('Who', esc(item.owner || 'Not assigned yet'))
+      + (item.addedBy ? fact('Added by', esc(item.addedBy)) : '');
   }
 
   d.innerHTML = `
@@ -129,6 +151,7 @@ function paintDrawer() {
     <div class="drawer-body">
       <div class="facts">${facts}</div>
       ${item.desc ? `<p class="desc">${esc(item.desc)}</p>` : ''}
+      ${collection === 'tasks' ? checklistHtml(item) : ''}
       ${item.source ? `<p class="meta">Source: ${safeLink(item.source)}</p>` : ''}
     </div>
     <div class="drawer-foot">
@@ -136,6 +159,64 @@ function paintDrawer() {
       ${collection === 'tasks' || collection === 'coe' ? `<button class="btn ${item.done ? '' : 'btn-primary'}" data-act="drawer-tick">${item.done ? 'Mark not done' : icon('check') + 'Mark done'}</button>` : ''}
       <button class="btn" type="button" data-act="edit">${icon('edit')}Edit</button>
     </div>`;
+}
+
+// ---------- The checklist inside a to-do ----------
+
+const stepsDone = (t) => stepsOf(t).filter((x) => x.done).length;
+
+function stepWho(st) {
+  if (!st.done || !st.doneBy) return '';
+  return ` <small class="step-who">ticked by ${esc(st.doneBy)}</small>`;
+}
+
+function checklistHtml(t) {
+  const steps = stepsOf(t);
+  const all = steps.length > 0 && stepsDone(t) === steps.length;
+  const full = steps.length >= MAX_STEPS;
+  return `<section class="checklist" aria-labelledby="cl-title">
+    <h3 id="cl-title">Checklist${steps.length ? ` <span class="hint">${stepsDone(t)} of ${steps.length} done</span>` : ''}</h3>
+    ${steps.length ? `<ul class="steps">${steps.map((st) => `<li class="step${st.done ? ' is-done' : ''}">
+      <button class="tick" type="button" role="checkbox" aria-checked="${!!st.done}" aria-label="${st.done ? 'Mark not done' : 'Mark done'}: ${esc(st.text)}" data-act="tick-step" data-id="${esc(st.id)}">${icon('check')}</button>
+      <span class="step-text">${esc(st.text)}${stepWho(st)}</span></li>`).join('')}</ul>` : '<p class="hint">No steps yet. Break the job into small pieces.</p>'}
+    ${all && !t.done ? '<p class="step-hint" role="status">All steps done. Tick the task when it’s finished.</p>' : ''}
+    ${full ? '<p class="hint">This checklist is full (30 steps).</p>' : `<form class="step-add" data-form="step" autocomplete="off">
+      <label class="sr" for="step-text">Add a step</label>
+      <input id="step-text" type="text" name="text" maxlength="200" placeholder="Add a step" autocomplete="off" enterkeyhint="done">
+      <button class="btn" type="submit">${icon('plus')}Add</button>
+    </form>`}
+  </section>`;
+}
+
+// In the edit form: move or remove steps. These save right away; Save and Cancel only cover the boxes above.
+function stepsEditHtml(t) {
+  const steps = stepsOf(t);
+  if (!steps.length) return '';
+  return `<h3>Checklist</h3><p class="hint">Steps save as soon as you tap. Save and Cancel only cover the boxes above.</p>
+    <ul class="steps">${steps.map((st, i) => `<li class="step step-edit">
+      <span class="step-text">${esc(st.text)}</span>
+      <span class="step-btns">
+        <button class="icon-btn" type="button" data-act="step-up" data-id="${esc(st.id)}" aria-label="Move up: ${esc(st.text)}" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button>
+        <button class="icon-btn" type="button" data-act="step-down" data-id="${esc(st.id)}" aria-label="Move down: ${esc(st.text)}" ${i === steps.length - 1 ? 'disabled' : ''}>${icon('down')}</button>
+        <button class="icon-btn step-del" type="button" data-act="step-del" data-id="${esc(st.id)}" aria-label="Remove step: ${esc(st.text)}">${icon('x')}</button>
+      </span></li>`).join('')}</ul>`;
+}
+
+// Repaint just the step buttons in the edit form (the typed fields are left alone).
+function paintStepsEdit() {
+  const box = $('#steps-edit');
+  if (!box || !drawerState || !drawerState.id) return;
+  const t = currentItem();
+  if (!t) return;
+  const focus = box.contains(document.activeElement) ? document.activeElement : null;
+  const key = focus ? focusKey(focus) : null;
+  const wasFocus = focus ? { act: focus.dataset.act, id: focus.dataset.id } : null;
+  box.innerHTML = stepsEditHtml(t);
+  box.hidden = !box.innerHTML.trim();
+  if (!wasFocus) return;
+  let el = key ? box.querySelector(key) : null;
+  if (!el || el.disabled) el = box.querySelector(`[data-act="${wasFocus.act === 'step-up' ? 'step-down' : 'step-up'}"][data-id="${CSS.escape(wasFocus.id)}"]:not(:disabled)`);
+  if (el) el.focus({ preventScroll: true });
 }
 
 // ---------- The edit form ----------
@@ -199,7 +280,7 @@ function paintForm() {
   d.innerHTML = `
     <div class="drawer-head"><h2 id="drawer-title">${drawerState.snap ? 'Edit ' + word : 'New ' + word}</h2>
       <button class="icon-btn" type="button" data-act="close" aria-label="Close">${icon('x')}</button></div>
-    <form class="drawer-body form" id="edit-form" data-form="edit" novalidate>${formHtml(collection, base)}<datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join('')}</datalist></form>
+    <form class="drawer-body form" id="edit-form" data-form="edit" novalidate>${formHtml(collection, base)}<datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join('')}</datalist>${collection === 'tasks' && item ? `<div class="checklist" id="steps-edit" ${stepsOf(item).length ? '' : 'hidden'}>${stepsEditHtml(item)}</div>` : ''}</form>
     <div class="drawer-foot">
       <p class="error form-error" id="form-error" role="alert"></p>
       <button class="btn" type="button" data-act="cancel-edit">Cancel</button>
@@ -307,9 +388,9 @@ async function saveDrawer() {
       for (const [k, v] of Object.entries(data)) if (norm(was[k]) !== norm(v)) changed[k] = v;
       saved = Object.keys(changed).length ? await updateItem(collection, item.id, changed) : item;
     } else {
-      saved = await createItem(collection, { id: newId(title), ...(collection === 'tasks' ? { done: false } : {}), ...data });
+      saved = collection === 'tasks' ? await addTask(data) : await createItem(collection, { id: newId(title), ...data });
     }
-    toast(item ? 'Saved' : 'Added');
+    toast(item ? 'Saved' : collection === 'tasks' ? 'Added. Anyone can tick it off.' : 'Added');
     if (drawerState === state) { // still the same popup (not closed meanwhile)
       drawerState = { collection, id: saved.id, editing: false, defaults: {}, saving: false };
       paintDrawer();

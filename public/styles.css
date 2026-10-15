@@ -350,6 +350,40 @@ a.todo-open { display: block; color: inherit; text-decoration: none; }
 .name-dialog h2 { margin: 0 0 4px; font-size: 26px; color: var(--ink); }
 .name-dialog .hint { display: block; margin-bottom: 14px; }
 
+/* ---------- Office page: add button, done list, calendar items ---------- */
+.office-actions { margin: -4px 0 4px; }
+.todo.is-done .todo-title { text-decoration: line-through; color: var(--muted); }
+.step-count { color: var(--green); font-weight: 600; }
+.done-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.done-head .group-title { margin-bottom: 0; }
+.done-head + .todo-list { margin-top: 10px; }
+.cal-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.cal-item:last-child { border-bottom: 0; }
+.cal-item .todo-open { width: 100%; min-height: 44px; }
+.cal-item .pill { padding: 1px 10px; font-size: 14px; }
+.cal-item .pill.s-internal, .cal-item .pill.s-nodate { border-color: var(--line-2); }
+
+/* ---------- Checklist inside a to-do ---------- */
+.checklist { margin: 8px 0 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.checklist h3 { margin: 0 0 8px; font-size: 19px; color: var(--ink); }
+.checklist h3 .hint { margin-left: 6px; font-weight: 600; }
+.checklist .hint { margin: 0 0 8px; }
+.steps { list-style: none; margin: 0 0 10px; padding: 0; }
+.step { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.step:last-child { border-bottom: 0; }
+.step .tick { margin-top: 1px; }
+.step-text { overflow-wrap: anywhere; padding-top: 3px; }
+.step.is-done .step-text { color: var(--muted); }
+.step-who { display: block; font-size: 14px; color: var(--muted); }
+.step-hint { margin: 4px 0 12px; padding: 10px 14px; background: var(--green-soft); color: var(--green-hover); border-radius: 10px; font-weight: 600; font-size: 17px; }
+.step-add { display: flex; gap: 8px; }
+.step-add input { flex: 1 1 auto; min-width: 0; }
+.step-add .btn { flex: none; }
+.step-edit { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.step-btns { display: flex; }
+.step-btns .icon-btn:disabled { opacity: .3; cursor: default; }
+.step-del { color: var(--red); }
+
 /* ---------- Medium screens ---------- */
 @media (max-width: 1000px) {
   .home { grid-template-columns: 1fr; }
@@ -358,6 +392,8 @@ a.todo-open { display: block; color: inherit; text-decoration: none; }
 
 /* ---------- Phones ---------- */
 @media (max-width: 680px) {
+  .office-actions .btn { width: 100%; }
+  .step-btns .icon-btn { width: 44px; }
   .topbar { padding: 10px 16px; }
   .working, .wordmark { display: none; }
   .tabs { padding: 8px 8px; gap: 2px; overflow-x: hidden; }

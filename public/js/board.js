@@ -65,11 +65,13 @@ function todoRow(t, showTeam = S.todoTeam === 'all') {
   const when = t.due ? (n < 0 ? `${fmt(t.due, { month: 'short', day: 'numeric' })} · ${-n === 1 ? '1 day' : -n + ' days'} late` : `${fmt(t.due)} · ${relDays(n)}`) : 'No date yet';
   const link = t.coe ? findItem('coe', t.coe) : null; // a to-do that counts toward Circles (ticking it does not tick the Circles item)
   const tag = link ? ` <span class="coe-tag" title="Counts toward Circles of Excellence">Circles +${esc(Number(link.points) || 0)}</span>` : '';
-  return `<li class="todo">
-    <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Mark done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
+  const steps = Array.isArray(t.steps) ? t.steps : [];
+  const prog = steps.length ? ` · <span class="step-count">${steps.filter((x) => x.done).length} of ${steps.length} done</span>` : '';
+  return `<li class="todo${t.done ? ' is-done' : ''}">
+    <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="todo-open" data-open="tasks:${esc(t.id)}">
       <span class="todo-title">${esc(t.title)}</span>
-      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(deptLabel(t.dept))}` : ''}${tag}</span>
+      <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(deptLabel(t.dept))}` : ''}${prog}${tag}</span>
     </button>
   </li>`;
 }

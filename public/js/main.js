@@ -148,6 +148,18 @@ function render() {
   if (!drawerState) restoreFocus(fk);
 }
 
+// Add the typed step to the open to-do, and keep the cursor in the box for the next one.
+function submitStep(form) {
+  const box = form.elements.text;
+  const text = box.value.trim();
+  if (!text) { box.focus(); return; }
+  const st = drawerState;
+  if (!st || !st.id || st.collection !== 'tasks') return;
+  box.value = '';
+  addStep(st.id, text).catch((err) => { const b = $('#step-text'); if (b && !b.value && err.message !== 'gone') b.value = text; }); // a failed step goes back in the box
+  $('#step-text')?.focus();
+}
+
 // ---------- Clicks ----------
 
 document.addEventListener('click', async (e) => {
@@ -183,6 +195,19 @@ document.addEventListener('click', async (e) => {
     case 'cancel-edit': cancelEdit(); break;
     case 'delete': deleteFromDrawer(); break;
     case 'add-todo': openNew('tasks', S.todoTeam !== 'all' ? { dept: S.todoTeam } : {}); break;
+    case 'add-task': openNew('tasks', { dept: el.dataset.dept }); break;
+    case 'toggle-done': S.doneOpen = S.doneOpen === el.dataset.id ? '' : el.dataset.id; render(); break;
+    case 'tick-step': case 'step-up': case 'step-down': case 'step-del': {
+      const st = drawerState;
+      if (!st || !st.id || st.collection !== 'tasks') break;
+      const id = el.dataset.id;
+      try {
+        if (el.dataset.act === 'tick-step') await tickStep(st.id, id);
+        else if (el.dataset.act === 'step-del') await removeStep(st.id, id);
+        else await moveStep(st.id, id, el.dataset.act === 'step-up' ? -1 : 1);
+      } catch { /* the message is already shown */ }
+      break;
+    }
     case 'add-event': openNew('events'); break;
     case 'add-on-day': openNew('events', { date: el.dataset.day }); break;
     case 'restore': {
@@ -215,6 +240,7 @@ document.addEventListener('submit', (e) => {
   const kind = e.target.dataset.form;
   if (kind === 'name') { e.preventDefault(); saveName(e.target); }
   else if (kind === 'edit') { e.preventDefault(); saveDrawer(); }
+  else if (kind === 'step') { e.preventDefault(); submitStep(e.target); }
 });
 
 $('#scrim').addEventListener('click', closeDrawerSafely);
