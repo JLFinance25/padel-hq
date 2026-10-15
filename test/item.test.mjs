@@ -431,3 +431,11 @@ test('deleting and restoring leave no old-values field', async () => {
   await del('events', 'event-one');
   assert.equal(newestLog().prev, undefined);
 });
+
+test('an item already on racquets can still be ticked', async () => {
+  seed({ tasks: { [T1.id]: { ...T1, dept: 'racquets' } } });
+  const r = await post(classC, { collection: 'tasks', item: { id: 'task-one', done: true }, patch: true, who: 'Test Person' });
+  assert.equal(r.statusCode, 200);
+  assert.equal(readDb().tasks['task-one'].done, true);
+  assert.equal(readDb().tasks['task-one'].dept, 'racquets');
+});
