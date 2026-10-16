@@ -98,6 +98,7 @@ select.compact { width: auto; }
 .tab-select.is-current, .tab-select.is-current:hover { background: var(--ink); }
 .tab-select.is-current select { color: #fff; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
 .tab-select select:focus { box-shadow: 0 0 0 3px var(--green-soft); }
+.tab-select select:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
 .tab-select select option { color: var(--ink); background: #fff; }
 .office-tabs { display: none; }
 @media (min-width: 900px) {
@@ -130,7 +131,7 @@ main { max-width: 1440px; margin: 0 auto; padding: 28px 24px 80px; outline: none
 .load-msg h1 { margin: 0; color: var(--ink); }
 
 /* Checkbox */
-.tick { position: relative; width: 34px; height: 34px; border-radius: 8px; border: 2px solid var(--line-2); background: var(--surface); display: grid; place-items: center; padding: 0; flex: none; color: #fff; }
+.tick { position: relative; width: 34px; height: 34px; border-radius: 8px; border: 2px solid #8B8578; /* 3.6:1 on white, so an empty box is easy to see */ background: var(--surface); display: grid; place-items: center; padding: 0; flex: none; color: #fff; }
 .tick::before { content: ""; position: absolute; inset: -8px; }
 .tick .ic { width: 22px; height: 22px; stroke-width: 3; opacity: 0; }
 .tick:hover { border-color: var(--green); }
@@ -316,7 +317,7 @@ a.todo-open { display: block; color: inherit; text-decoration: none; }
 .scrim { position: fixed; inset: 0; background: rgba(20, 33, 59, .4); z-index: 20; }
 .drawer { position: fixed; z-index: 21; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px)); max-height: calc(100vh - 48px); background: var(--surface); border-radius: 18px; box-shadow: 0 20px 60px rgba(20,33,59,.3); display: flex; flex-direction: column; overflow: hidden; }
 .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 20px 14px 24px; border-bottom: 1px solid var(--line); }
-.drawer-head h2 { margin: 0; padding-top: 6px; font-size: 26px; line-height: 1.25; color: var(--ink); }
+.drawer-head h2 { margin: 0; padding-top: 6px; font-size: 26px; line-height: 1.25; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .drawer-body { padding: 4px 24px 22px; overflow-y: auto; min-height: 0; }
 .drawer-body.form { padding-top: 20px; }
 .drawer.editing .drawer-body { flex: 1 1 auto; }
@@ -335,7 +336,7 @@ a.todo-open { display: block; color: inherit; text-decoration: none; }
 .form-error { flex: 1 1 100%; margin: 0; min-height: 0; text-align: right; }
 .form-error:empty { display: none; }
 .day-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
-.day-list .chip { font-size: 18px; padding: 8px 12px; white-space: normal; background: var(--paper); border-left-width: 5px; }
+.day-list .chip { font-size: 18px; padding: 8px 12px; white-space: normal; overflow-wrap: anywhere; background: var(--paper); border-left-width: 5px; }
 
 /* ---------- Messages ---------- */
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 14px 20px; border-radius: 12px; font-size: 18px; opacity: 0; pointer-events: none; z-index: 30; max-width: calc(100% - 32px); display: flex; gap: 10px; align-items: center; }

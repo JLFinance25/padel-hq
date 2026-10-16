@@ -4,7 +4,12 @@
 // ---------- Login ----------
 
 function showLogin() {
-  if (drawerState) { drawerState = null; $('#drawer').hidden = true; $('#drawer').classList.remove('editing'); $('#scrim').hidden = true; $('#app').inert = false; document.body.style.overflow = ''; }
+  // A form being filled in is only hidden, not thrown away: it comes back as typed after logging in again.
+  S.keptForm = drawerIsEditing();
+  if (drawerState) {
+    if (!S.keptForm) { drawerState = null; $('#drawer').classList.remove('editing'); }
+    $('#drawer').hidden = true; $('#scrim').hidden = true; $('#app').inert = false; document.body.style.overflow = '';
+  }
   S.trash = [];
   $('#app').hidden = true;
   $('#login').hidden = false;
@@ -40,6 +45,11 @@ function startApp() {
   renderNameBar();
   route(); // also picks the page named in the address
   refresh();
+  if (S.keptForm && drawerState) {
+    S.keptForm = false;
+    showPopup();
+    toast('You were logged out. What you typed is still here, so press Save again.', true);
+  }
 }
 
 $('#logout-btn').addEventListener('click', async () => {
@@ -166,6 +176,13 @@ function submitStep(form) {
 
 // ---------- Clicks ----------
 
+// A double tap is two taps. A ticked to-do leaves the list at once, so the second tap would land on the next row,
+// and a saved form swaps Save for Delete in the same spot. So right after a tick or a save, taps on ticks and
+// on the popup's buttons wait 0.6 seconds.
+let calmUntil = 0;
+const settle = () => { calmUntil = Date.now() + 600; };
+const tooSoon = () => Date.now() < calmUntil;
+
 document.addEventListener('click', async (e) => {
   const open = e.target.closest('[data-open]');
   if (open) {
@@ -177,6 +194,8 @@ document.addEventListener('click', async (e) => {
   const tick = e.target.closest('[data-tick]');
   if (tick) {
     e.preventDefault();
+    if (tooSoon()) return;
+    settle();
     const [c, id] = tick.dataset.tick.split(':');
     toggleDone(c, id).then(() => { if (drawerState && !drawerIsEditing()) paintDrawer(); }).catch(() => {});
     return;
@@ -195,9 +214,9 @@ document.addEventListener('click', async (e) => {
     case 'today': S.month = startOfMonth(new Date()); render(); break;
     case 'open-day': openDay(el.dataset.day); break;
     case 'close': closeDrawerSafely(); break;
-    case 'edit': startEdit(); break;
+    case 'edit': if (!tooSoon()) startEdit(); break;
     case 'cancel-edit': cancelEdit(); break;
-    case 'delete': deleteFromDrawer(); break;
+    case 'delete': if (!tooSoon()) deleteFromDrawer(); break;
     case 'add-todo': openNew('tasks'); break;
     case 'coming-all': S.comingAll[el.dataset.v] = !S.comingAll[el.dataset.v]; render(); break;
     case 'change-name': S.nameEdit = true; render(); $('#mine-name')?.focus(); $('#mine-name')?.select(); break;
@@ -222,8 +241,11 @@ document.addEventListener('click', async (e) => {
       try { await restoreItem(el.dataset.id); } catch { el.disabled = false; } // the message is already shown
       break;
     }
+    case 'skip': $('#main').focus(); break;
     case 'retry': S.loadError = null; render(); refresh(); break;
     case 'drawer-tick': {
+      if (tooSoon()) break;
+      settle();
       const st = drawerState;
       if (!st || !st.id) break;
       try { await toggleDone(st.collection, st.id); if (drawerState === st && !drawerIsEditing()) paintDrawer(); } catch { /* shown */ }

@@ -189,7 +189,7 @@ function viewCircles() {
     if (!items.length) return null;
     const open = items.filter((c) => !c.done).length;
     const past = p.ends < t;
-    const isNow = !p.bonus && p.id === nowId;
+    const isNow = !p.bonus && p.id === nowId && t >= p.starts && t <= p.ends; // after May, no period is "Now"
     const got = items.filter((c) => c.done).reduce((n, c) => n + coePts(c), 0);
     const max = items.reduce((n, c) => n + coePts(c), 0);
     // Current period first, then past ones with open items (late), then coming ones, bonuses, and finished past ones last.

@@ -439,3 +439,55 @@ test('an item already on racquets can still be ticked', async () => {
   assert.equal(readDb().tasks['task-one'].done, true);
   assert.equal(readDb().tasks['task-one'].dept, 'racquets');
 });
+
+test('a full checklist whose text is all quote marks (they count double) can still be filled and ticked', async () => {
+  const name = 'N'.repeat(40), q = '"';
+  seed({ tasks: { [T1.id]: { ...T1, title: q.repeat(160), owner: q.repeat(400), desc: q.repeat(2000), steps: [] } } });
+  for (let i = 0; i < 30; i++) {
+    const r = await post(classC, { op: 'add-step', taskId: 'task-one', step: { id: 'step-' + i + '-abcdefghijklmnopqrstuvwxyz0', text: q.repeat(200) }, who: name });
+    assert.equal(r.statusCode, 200, `step ${i + 1}: ${r.body.error}`);
+  }
+  for (let i = 0; i < 30; i++) {
+    const r = await post(classC, { op: 'tick-step', taskId: 'task-one', stepId: 'step-' + i + '-abcdefghijklmnopqrstuvwxyz0', done: true, who: name });
+    assert.equal(r.statusCode, 200, `tick ${i + 1}: ${r.body.error}`);
+  }
+  assert.equal((await post(classC, { collection: 'tasks', item: { id: 'task-one', done: true }, patch: true, who: name })).statusCode, 200);
+});
+
+test('a new to-do keeps the whole Who box (up to 400 characters)', async () => {
+  fresh();
+  const owner = Array.from({ length: 30 }, (_, i) => 'Name' + i).join(', ');
+  const r = await post(classC, { op: 'add-task', item: { id: 'who-long', title: 'Who', dept: 'ops', owner }, who: 'A' });
+  assert.equal(r.statusCode, 200);
+  assert.equal(readDb().tasks['who-long'].owner, owner);
+});
+
+test('a calendar date and its "how sure" label must agree', async () => {
+  fresh();
+  const add = (item) => post(classC, { collection: 'events', item: { id: 'ev-' + Math.random().toString(36).slice(2, 7), title: 'E', dept: 'firm', kind: 'event', ...item }, who: 'A' });
+  assert.equal((await add({ date: '2026-11-03', status: 'nodate' })).statusCode, 400);
+  assert.equal((await add({ date: null, status: 'confirmed' })).statusCode, 400);
+  assert.equal((await add({ date: null, status: 'nodate' })).statusCode, 200);
+  assert.equal((await add({ date: '2026-11-03', status: 'projected' })).statusCode, 200);
+});
+
+test('a Circles item is a bonus item only when it sits in a bonus window', async () => {
+  fresh();
+  const edit = (item) => post(classC, { collection: 'coe', item: { id: 'c1', ...item }, patch: true, who: 'A' });
+  assert.equal((await edit({ bonus: true })).statusCode, 400); // period 1 is not a bonus window
+  assert.equal((await edit({ period: 'fall-bonus' })).statusCode, 400); // moved without saying bonus
+  assert.equal((await edit({ period: 'fall-bonus', bonus: true })).statusCode, 200);
+  assert.equal((await edit({ period: 2, bonus: false })).statusCode, 200);
+});
+
+test('a checklist move made on an old copy is refused, so a classmate’s move is not undone', async () => {
+  withSteps(S3());
+  const order = (ids) => ids.map((id) => S3().find((s) => s.id === id));
+  // Person A moves s1 down (s2, s1, s3), starting from s1, s2, s3.
+  const a = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: order(['s2', 's1', 's3']) }, patch: true, stepsWas: ['s1', 's2', 's3'], who: 'Person A' });
+  assert.equal(a.statusCode, 200);
+  // Person B also started from s1, s2, s3 and moves s3 up (s1, s3, s2): refused, A's move stays.
+  const b = await post(classC, { collection: 'tasks', item: { id: 'task-one', steps: order(['s1', 's3', 's2']) }, patch: true, stepsWas: ['s1', 's2', 's3'], who: 'Person B' });
+  assert.equal(b.statusCode, 400);
+  assert.deepEqual(readDb().tasks['task-one'].steps.map((s) => s.id), ['s2', 's1', 's3']);
+});

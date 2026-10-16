@@ -1,4 +1,4 @@
-import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, prevValues, moveToTrash, restoreFromTrash, cleanWho } from './_lib.js';
+import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, prevValues, moveToTrash, restoreFromTrash, cleanWho, withItemLock, BusyError } from './_lib.js';
 
 // Who may change what: everyone logged in (with the class passcode) can do all of it.
 //   Add, edit and delete to-dos, calendar items, Circles items and links (Circles items can't be deleted).
@@ -7,7 +7,8 @@ import { send, readJson, query, requireLogin, checkItem, getItem, saveItem, prev
 // for 30 days where anyone can put them back. Suggestions are turned off; old ones stay in the database.
 // Checklists change only through add-step and tick-step, and who/when stamps are set here, never taken from the page.
 // So a plain add or edit ignores these fields if they are sent. The one exception: an edit that sends only
-// "steps" may delete or reorder steps, as long as every step it sends already exists exactly as saved.
+// "steps" may delete or reorder steps, as long as every step it sends already exists exactly as saved and
+// (when the page says which order it started from) nobody has moved, added or removed a step since.
 const LISTS = ['tasks', 'events', 'coe', 'links'];
 const NEVER_FROM_CLIENT = ['steps', 'doneBy', 'doneAt', 'addedBy', 'createdAt', 'updatedAt', 'updatedBy'];
 const STEP_KEYS = ['id', 'text', 'done', 'addedBy', 'doneBy', 'doneAt'];
@@ -52,7 +53,7 @@ async function taskOp(body, who, res) {
       title: typeof sent.title === 'string' ? sent.title.trim().slice(0, 160) : '',
       dept: sent.dept,
       due: sent.due || null,
-      owner: typeof sent.owner === 'string' ? sent.owner.trim().slice(0, 80) : '',
+      owner: typeof sent.owner === 'string' ? sent.owner.trim().slice(0, 400) : '', // the Who box allows 400
       desc: typeof sent.desc === 'string' ? sent.desc.trim().slice(0, 2000) : '',
       done: false,
       steps: [],
@@ -110,7 +111,7 @@ export default async function handler(req, res) {
       const id = q.get('id');
       if (collection === 'coe') return send(res, 403, { error: "Circles items mirror VE's list, so they can't be deleted. Edit it instead." });
       if (!LISTS.includes(collection) || !id) return send(res, 400, { error: 'Bad request.' });
-      const entry = await moveToTrash(collection, id, cleanWho(q.get('who')));
+      const entry = await withItemLock(collection, id, () => moveToTrash(collection, id, cleanWho(q.get('who'))));
       if (!entry) return send(res, 404, { error: 'That was already deleted.' });
       return send(res, 200, { ok: true, trash: entry });
     }
@@ -120,44 +121,57 @@ export default async function handler(req, res) {
     const who = cleanWho(body.who);
 
     if (body.op === 'restore') {
-      const back = await restoreFromTrash(String(body.trashId || ''), who);
+      const trashId = String(body.trashId || '');
+      const back = await withItemLock('trash', trashId, () => restoreFromTrash(trashId, who));
       if (back === 'exists') return send(res, 409, { error: 'Something with the same id is already back on the list.' });
       if (!back) return send(res, 404, { error: 'That was already restored or cleared.' });
       return send(res, 200, { item: back });
     }
 
-    if (body.op) return await taskOp(body, who, res);
+    // Changes to one item go one at a time (see withItemLock), so two people a moment apart both count.
+    if (body.op) {
+      const taskId = body.op === 'add-task' ? body.item?.id : body.taskId;
+      if (typeof taskId !== 'string') return await taskOp(body, who, res);
+      return await withItemLock('tasks', taskId, () => taskOp(body, who, res));
+    }
 
     const { collection, item: sent } = body;
     if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
     // Unknown list names are refused before storage is touched.
     if (collection === 'suggestions') return send(res, 400, { error: 'Suggestions are turned off. Add the to-do directly.' });
     if (!LISTS.includes(collection)) return send(res, 400, { error: 'Unknown list.' });
-
-    // Add or edit.
-    const before = await getItem(collection, sent.id);
-    if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
-    if (!body.patch && before) return send(res, 409, { error: 'That item already exists.' });
-    // Only the fields people may set; stamps and checklists are ignored here (see NEVER_FROM_CLIENT).
-    let fields = Object.fromEntries(Object.entries(sent).filter(([k]) => !NEVER_FROM_CLIENT.includes(k)));
-    if (body.patch && collection === 'tasks' && 'steps' in sent && Object.keys(sent).every((k) => k === 'id' || k === 'steps')) {
-      const steps = keptSteps(before, sent.steps);
-      if (!steps) return send(res, 400, { error: STEPS_MSG });
-      fields = { id: sent.id, steps };
-    }
-    const merged = body.patch ? { ...before, ...fields } : { ...fields, addedBy: who, createdAt: new Date().toISOString() };
-    const item = stampDone(collection, before, merged, who);
-    if (collection === 'events' && !item.status) return send(res, 400, { error: 'Pick how sure the date is: Confirmed, Projected, From our teacher, Our target or No date yet.' });
-    if (Object.hasOwn(sent, 'dept') && ['racquets', 'apparel'].includes(sent.dept) && (!before || before.dept !== sent.dept))
-      return send(res, 409, { error: 'This page is out of date. Close it and open the site again.' });
-    const problem = checkItem(collection, item);
-    if (problem) return send(res, 400, { error: problem });
-    const keys = Object.keys(fields).filter((k) => k !== 'id');
-    let action = before ? 'edited' : 'added';
-    if (before && keys.length === 1 && keys[0] === 'done') action = item.done ? 'checked off' : 'unchecked';
-    const saved = await saveItem(collection, item, who, action, before ? prevValues(before, fields) : undefined);
-    return send(res, 200, { item: saved });
+    return await withItemLock(collection, sent.id, () => addOrEdit(body, collection, sent, who, res));
   } catch (e) {
+    if (e instanceof BusyError) return send(res, 503, { error: e.message });
     return send(res, e instanceof SyntaxError ? 400 : 500, { error: e instanceof SyntaxError ? 'That request was not valid JSON.' : e.message });
   }
+}
+
+// Add or edit (reads the newest saved copy first; runs while holding the item's lock).
+async function addOrEdit(body, collection, sent, who, res) {
+  const before = await getItem(collection, sent.id);
+  if (body.patch && !before) return send(res, 404, { error: 'Someone deleted this item.' });
+  if (!body.patch && before) return send(res, 409, { error: 'That item already exists.' });
+  // Only the fields people may set; stamps and checklists are ignored here (see NEVER_FROM_CLIENT).
+  let fields = Object.fromEntries(Object.entries(sent).filter(([k]) => !NEVER_FROM_CLIENT.includes(k)));
+  if (body.patch && collection === 'tasks' && 'steps' in sent && Object.keys(sent).every((k) => k === 'id' || k === 'steps')) {
+    const steps = keptSteps(before, sent.steps);
+    if (!steps) return send(res, 400, { error: STEPS_MSG });
+    // The page says which order it started from. If someone moved a step since, this move was made on an old copy.
+    const was = (before.steps || []).map((x) => x.id);
+    if (Array.isArray(body.stepsWas) && body.stepsWas.join('\n') !== was.join('\n')) return send(res, 400, { error: STEPS_MSG });
+    fields = { id: sent.id, steps };
+  }
+  const merged = body.patch ? { ...before, ...fields } : { ...fields, addedBy: who, createdAt: new Date().toISOString() };
+  const item = stampDone(collection, before, merged, who);
+  if (collection === 'events' && !item.status) return send(res, 400, { error: 'Pick how sure the date is: Confirmed, Projected, From our teacher, Our target or No date yet.' });
+  if (Object.hasOwn(sent, 'dept') && ['racquets', 'apparel'].includes(sent.dept) && (!before || before.dept !== sent.dept))
+    return send(res, 409, { error: 'This page is out of date. Close it and open the site again.' });
+  const problem = checkItem(collection, item);
+  if (problem) return send(res, 400, { error: problem });
+  const keys = Object.keys(fields).filter((k) => k !== 'id');
+  let action = before ? 'edited' : 'added';
+  if (before && keys.length === 1 && keys[0] === 'done') action = item.done ? 'checked off' : 'unchecked';
+  const saved = await saveItem(collection, item, who, action, before ? prevValues(before, fields) : undefined);
+  return send(res, 200, { item: saved });
 }

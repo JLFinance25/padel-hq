@@ -14,7 +14,7 @@ const PREFIX = 'phq:';
 const LOG_KEY = PREFIX + 'log';
 const LOG_KEEP = 500;
 const SESSION_DAYS = 40;
-const MAX_ITEM_BYTES = 16000; // room for a task with 30 full-length checklist steps
+const MAX_ITEM_BYTES = 32000; // room for a task with 30 full-length checklist steps, even when quote marks count double
 const MAX_STEPS = 30;
 
 // ---------- HTTP ----------
@@ -166,10 +166,15 @@ export function checkItem(collection, item) {
     if (!Object.hasOwn(ALLOWED.dept, item.dept)) return 'Pick one of the offices.';
     if (collection === 'events' && item.kind !== undefined && !Object.hasOwn(ALLOWED.kind, item.kind)) return 'Unknown kind of calendar item.';
     if (collection === 'events' && item.status !== undefined && !Object.hasOwn(ALLOWED.status, item.status)) return 'Unknown date status.';
+    // The same rule as the form: a date never says "No date yet", and no date never says how sure it is.
+    if (collection === 'events' && item.status === 'nodate' && item.date) return "This has a date, so it can't say 'No date yet'.";
+    if (collection === 'events' && item.status && item.status !== 'nodate' && !item.date) return "There's no date, so this has to say 'No date yet'.";
     if (collection === 'coe') {
       if (item.points !== undefined && !(Number.isInteger(item.points) && item.points >= 0 && item.points <= 20)) return 'Points must be a whole number from 0 to 20.';
       if (item.period !== undefined && !([1, 2, 3, 4, 5, 6].includes(item.period) || item.period === 'fall-bonus' || item.period === 'spring-bonus')) return 'Pick one of the periods.';
       if (item.bonus !== undefined && typeof item.bonus !== 'boolean') return '“bonus” must be true or false.';
+      // A bonus item is one in a bonus window, and only those (the score counts them separately).
+      if (item.period !== undefined && !!item.bonus !== (item.period === 'fall-bonus' || item.period === 'spring-bonus')) return 'Only items in a bonus window are bonus items.';
     }
     if (collection === 'links' && (typeof item.url !== 'string' || !/^https:\/\//i.test(item.url))) return 'A link has to start with https://';
     if (collection === 'links' && !['link', 'learn'].includes(item.section)) return 'A link goes under "link" or "learn".';
@@ -383,6 +388,39 @@ export async function deleteItem(collection, id, who, title) {
     ['LPUSH', LOG_KEY, JSON.stringify(entry)],
     ['LTRIM', LOG_KEY, '0', String(LOG_KEEP - 1)],
   ]);
+}
+
+// One change at a time per item. Every change reads the newest copy and then saves, and the live database is a
+// network trip away, so two changes to the same item a moment apart could each start from the same copy and the
+// second save would wipe out the first. Holding a short lock on the item makes the second one wait its turn.
+// The lock clears itself after 5 seconds in case a server stops halfway.
+const LOCK_MS = 5000;
+const LOCK_WAIT_MS = 4000;
+const fileLocks = new Map();
+export class BusyError extends Error {}
+export async function withItemLock(collection, id, fn) {
+  const key = PREFIX + 'lock:' + collection + ':' + id;
+  if (usingFile()) {
+    const before = fileLocks.get(key) || Promise.resolve();
+    const run = before.then(fn, fn);
+    const tail = run.catch(() => {});
+    fileLocks.set(key, tail);
+    tail.then(() => { if (fileLocks.get(key) === tail) fileLocks.delete(key); });
+    return run;
+  }
+  const token = crypto.randomBytes(8).toString('hex');
+  const start = Date.now();
+  for (;;) {
+    const [ok] = await redis([['SET', key, token, 'NX', 'PX', String(LOCK_MS)]]);
+    if (ok === 'OK') break;
+    if (Date.now() - start > LOCK_WAIT_MS) throw new BusyError('Lots of people are changing this right now. Try again in a moment.');
+    await new Promise((r) => setTimeout(r, 40 + Math.random() * 60));
+  }
+  try {
+    return await fn();
+  } finally {
+    await redis([['DEL', key]]).catch(() => {}); // if this fails, the lock still clears itself
+  }
 }
 
 // Login throttle: every attempt counts first (so parallel guesses can't slip through),

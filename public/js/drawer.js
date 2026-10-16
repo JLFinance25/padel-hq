@@ -388,10 +388,14 @@ async function saveDrawer() {
       for (const [k, v] of Object.entries(data)) if (norm(was[k]) !== norm(v)) changed[k] = v;
       saved = Object.keys(changed).length ? await updateItem(collection, item.id, changed) : item;
     } else {
-      saved = collection === 'tasks' ? await addTask(data) : await createItem(collection, { id: newId(title), ...data });
+      // A new item keeps one id across tries. If an earlier try's answer was lost but the server saved it, use that.
+      state.newId ||= newId(title);
+      saved = (state.tried && findItem(collection, state.newId))
+        || (state.tried = true, collection === 'tasks' ? await addTask(data, state.newId) : await createItem(collection, { id: state.newId, ...data }));
     }
     toast(item ? 'Saved' : collection === 'tasks' ? 'Added. Anyone can tick it off.' : 'Added');
     if (drawerState === state) { // still the same popup (not closed meanwhile)
+      settle(); // a second tap on Save must not land on Delete, which now sits in its place
       drawerState = { collection, id: saved.id, editing: false, defaults: {}, saving: false };
       paintDrawer();
       fitDrawer();

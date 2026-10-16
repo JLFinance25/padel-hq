@@ -118,7 +118,15 @@ function safeLink(src) {
 // ---------- Server ----------
 
 async function api(path, opts = {}) {
-  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
+  let r;
+  try {
+    r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' });
+  } catch {
+    // No answer came back. The change may still have reached the server, so callers check again (see recheck).
+    const e = new Error("Couldn't reach the site. Check your internet connection.");
+    e.network = true;
+    throw e;
+  }
   let body = {};
   try { body = await r.json(); } catch { /* empty */ }
   if (r.status === 401 && !path.includes('login')) { showLogin(); throw new Error(body.error || 'Please log in'); }
@@ -156,6 +164,11 @@ function putLocal(collection, item) {
   if (i >= 0) S[collection][i] = item; else S[collection].push(item);
 }
 
+// After a lost answer, ask the server what it really saved, so the screen doesn't keep showing an old state.
+// A 409 on a new item means an earlier try did save it. lastData is cleared so the screen repaints even if
+// the server's copy is the same as the last one loaded.
+function recheck(e) { if (e && (e.network || e.status === 409)) setTimeout(() => { lastData = ''; refresh(true); }, 1500); }
+
 // Create a new item (the whole thing).
 async function createItem(collection, item) {
   putLocal(collection, item);
@@ -168,6 +181,7 @@ async function createItem(collection, item) {
     S[collection] = S[collection].filter((x) => x.id !== item.id);
     renderTabs(); render();
     toast("Didn't save: " + e.message, true);
+    recheck(e);
     throw e;
   }
 }
@@ -188,6 +202,7 @@ async function updateItem(collection, id, fields) {
     if (e.status === 404) S[collection] = S[collection].filter((x) => x.id !== id); else putLocal(collection, before);
     renderTabs(); render();
     toast(e.status === 404 ? 'Someone deleted this item.' : "Didn't save: " + e.message, true);
+    recheck(e);
     throw e;
   }
 }
@@ -250,9 +265,8 @@ function postItem(body) {
   return api('/api/item', { method: 'POST', body: JSON.stringify({ ...body, who: S.me }) });
 }
 
-// A new to-do. fields: title, dept, due, owner, desc.
-async function addTask(fields) {
-  const id = newId(fields.title);
+// A new to-do. fields: title, dept, due, owner, desc. A retry passes the same id, so it can't make a second copy.
+async function addTask(fields, id = newId(fields.title)) {
   const sent = { id, title: fields.title, dept: fields.dept, due: fields.due || null, owner: fields.owner || '', desc: fields.desc || '' };
   putLocal('tasks', { ...sent, done: false, steps: [], addedBy: S.me });
   repaintAll();
@@ -265,6 +279,7 @@ async function addTask(fields) {
     S.tasks = S.tasks.filter((x) => x.id !== id);
     repaintAll();
     toast("Didn't save: " + e.message, true);
+    recheck(e);
     throw e;
   }
 }
@@ -277,7 +292,7 @@ function stepFailed(taskId, e, undo) {
   if (todoGone) S.tasks = S.tasks.filter((x) => x.id !== taskId); else undo();
   if (todoGone && drawerState && drawerState.id === taskId) closeDrawer(); else repaintAll();
   toast(todoGone ? 'Someone deleted this to-do.' : stepGone ? 'That step was removed.' : "Didn't save: " + e.message, true);
-  if (stepGone) refresh(true);
+  if (stepGone) refresh(true); else recheck(e);
 }
 
 // Add a step at the end of the checklist.
@@ -342,7 +357,7 @@ async function saveStepsNow(taskId, build) {
   putLocal('tasks', { ...task, steps: next });
   repaintAll();
   try {
-    const { item } = await postItem({ collection: 'tasks', item: { id: taskId, steps: next }, patch: true });
+    const { item } = await postItem({ collection: 'tasks', item: { id: taskId, steps: next }, patch: true, stepsWas: before.map((x) => x.id) });
     putLocal('tasks', item);
     repaintAll();
     return item;
