@@ -76,7 +76,7 @@ function todoRow(t, showTeam = false) {
   const steps = Array.isArray(t.steps) ? t.steps : [];
   const prog = steps.length ? ` · <span class="step-count">${steps.filter((x) => x.done).length} of ${steps.length} done</span>` : '';
   return `<li class="todo${t.done ? ' is-done' : ''}">
-    <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
+    <button class="tick" role="checkbox" aria-checked="${!!t.done}" aria-label="Done: ${esc(t.title)}" data-tick="tasks:${esc(t.id)}">${icon('check')}</button>
     <button class="todo-open" data-open="tasks:${esc(t.id)}">
       <span class="todo-title">${esc(t.title)}${newPill(t)}</span>
       <span class="todo-sub"><span class="${cls}">${esc(when)}</span>${showTeam ? ` · ${esc(deptLabel(t.dept))}` : ''}${prog}${tag}</span>

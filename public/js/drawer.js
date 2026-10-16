@@ -59,7 +59,8 @@ function formState() {
   const f = $('#edit-form');
   return f ? JSON.stringify([...new FormData(f).entries()]) : '';
 }
-const drawerIsDirty = () => drawerIsEditing() && !!drawerState.initial && formState() !== drawerState.initial;
+const stepTyped = () => !!$('#drawer #step-text')?.value.trim();
+const drawerIsDirty = () => (drawerIsEditing() && !!drawerState.initial && formState() !== drawerState.initial) || stepTyped();
 const THROW_AWAY = 'Throw away your changes?';
 // Close the popup, but ask first if a form has unsaved changes.
 function closeDrawerSafely() {
@@ -177,7 +178,7 @@ function checklistHtml(t) {
   return `<section class="checklist" aria-labelledby="cl-title">
     <h3 id="cl-title">Checklist${steps.length ? ` <span class="hint">${stepsDone(t)} of ${steps.length} done</span>` : ''}</h3>
     ${steps.length ? `<ul class="steps">${steps.map((st) => `<li class="step${st.done ? ' is-done' : ''}">
-      <button class="tick" type="button" role="checkbox" aria-checked="${!!st.done}" aria-label="${st.done ? 'Mark not done' : 'Mark done'}: ${esc(st.text)}" data-act="tick-step" data-id="${esc(st.id)}">${icon('check')}</button>
+      <button class="tick" type="button" role="checkbox" aria-checked="${!!st.done}" aria-label="Done: ${esc(st.text)}" data-act="tick-step" data-id="${esc(st.id)}">${icon('check')}</button>
       <span class="step-text">${esc(st.text)}${stepWho(st)}</span></li>`).join('')}</ul>` : '<p class="hint">No steps yet. Break the job into small pieces.</p>'}
     ${all && !t.done ? '<p class="step-hint" role="status">All steps done. Tick the task when it’s finished.</p>' : ''}
     ${full ? '<p class="hint">This checklist is full (30 steps).</p>' : `<form class="step-add" data-form="step" autocomplete="off">

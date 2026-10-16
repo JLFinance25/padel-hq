@@ -491,3 +491,27 @@ test('a checklist move made on an old copy is refused, so a classmate’s move i
   assert.equal(b.statusCode, 400);
   assert.deepEqual(readDb().tasks['task-one'].steps.map((s) => s.id), ['s2', 's1', 's3']);
 });
+
+test('the same add sent again after a lost answer gets the saved copy back, once', async () => {
+  fresh();
+  const body = { op: 'add-task', item: { id: 'retry-1', title: 'Send the plan', dept: 'ceo' }, who: 'Test Person' };
+  const first = await post(classC, body);
+  const again = await post(classC, body);
+  assert.equal(first.statusCode, 200);
+  assert.equal(again.statusCode, 200);
+  assert.equal(again.body.item.createdAt, first.body.item.createdAt); // the first copy, not a new one
+  assert.equal(Object.values(readDb().tasks).filter((t) => t.id === 'retry-1').length, 1);
+  assert.equal(readDb().log.filter((l) => l.id === 'retry-1').length, 1);
+  // Someone else (or a different title) on the same id is still refused.
+  assert.equal((await post(classC, { ...body, who: 'Other Person' })).statusCode, 409);
+  assert.equal((await post(classC, { ...body, item: { ...body.item, title: 'Different' } })).statusCode, 409);
+});
+
+test('an end date needs a start date', async () => {
+  fresh();
+  const r = await post(classC, { collection: 'events', item: { id: 'ev-nd', dept: 'firm', title: 'Undated', status: 'nodate', end: '2026-11-09' }, who: 'A' });
+  assert.equal(r.statusCode, 400);
+  assert.equal(readDb().events['ev-nd'], undefined);
+  const edit = await post(classC, { collection: 'events', item: { id: 'event-one', date: '', end: '2026-11-09', status: 'nodate' }, patch: true, who: 'A' });
+  assert.equal(edit.statusCode, 400);
+});

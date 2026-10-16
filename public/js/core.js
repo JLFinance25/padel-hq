@@ -77,7 +77,7 @@ function toast(msg, bad, action) {
   t.className = 'toast show' + (bad ? ' bad' : '') + (action ? ' has-action' : '');
   if (action) t.querySelector('.toast-btn').onclick = () => { t.className = 'toast'; action.run(); };
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => (t.className = 'toast'), action ? 6500 : 2800);
+  toast.timer = setTimeout(() => { t.className = 'toast'; t.querySelector('.toast-btn')?.remove(); }, action ? 6500 : 2800);
 }
 function newId(title) {
   const slug = String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'item';
@@ -221,6 +221,7 @@ async function removeItem(collection, id) {
     if (before && e.status !== 404) putLocal(collection, before); // a 404 means it is already gone, so leave it gone
     renderTabs(); render();
     toast("Didn't delete: " + e.message, true);
+    recheck(e);
     throw e;
   }
 }

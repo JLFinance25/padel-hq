@@ -46,7 +46,10 @@ async function taskOp(body, who, res) {
   if (op === 'add-task') {
     const sent = body.item;
     if (!sent || typeof sent !== 'object' || typeof sent.id !== 'string') return send(res, 400, { error: 'Missing item.' });
-    if (await getItem('tasks', sent.id)) return send(res, 409, { error: 'That to-do already exists.' });
+    const already = await getItem('tasks', sent.id);
+    // The same add sent again (its first answer got lost on the way back): it saved the first time, so say so.
+    if (already && already.addedBy === who && already.title === String(sent.title || '').trim().slice(0, 160)) return send(res, 200, { item: already });
+    if (already) return send(res, 409, { error: 'That to-do already exists.' });
     // Only these fields are kept, whatever else was sent.
     const item = {
       id: sent.id,

@@ -44,7 +44,13 @@ function startApp() {
   lastData = ''; // the first load always repaints
   renderNameBar();
   route(); // also picks the page named in the address
-  refresh();
+  S.loadSlow = false;
+  clearTimeout(startApp.slow);
+  startApp.slow = setTimeout(() => { if (!S.loaded && !S.loadError) { S.loadSlow = true; render(); } }, 10000);
+  refresh().then(() => {
+    // Nothing focused yet: start keyboard order at the top, so the first Tab reaches "Skip to content".
+    if (document.activeElement === document.body && !drawerState) { const app = $('#app'); app.tabIndex = -1; app.focus({ preventScroll: true }); app.blur(); app.removeAttribute('tabindex'); }
+  });
   if (S.keptForm && drawerState) {
     S.keptForm = false;
     showPopup();
@@ -144,7 +150,9 @@ function render() {
   if (!S.loaded) {
     main.innerHTML = S.loadError
       ? `<div class="load-msg" role="alert"><h1>The site didn't load</h1><p class="error">${esc(S.loadError)}</p><button class="btn" data-act="retry">Try again</button></div>`
-      : `<div class="load-msg" aria-busy="true"><p>Loading…</p></div>`;
+      : S.loadSlow
+        ? `<div class="load-msg" role="status"><p>Still loading. The connection may be slow.</p><button class="btn" data-act="retry">Try again</button></div>`
+        : `<div class="load-msg" aria-busy="true"><p>Loading…</p></div>`;
     return;
   }
   // Remember focus, then repaint, then put it back.
@@ -227,6 +235,7 @@ document.addEventListener('click', async (e) => {
       const st = drawerState;
       if (!st || !st.id || st.collection !== 'tasks') break;
       const id = el.dataset.id;
+      if (el.dataset.act === 'tick-step') { if (tooSoon()) break; settle(); } // a double tap must not tick and then untick
       try {
         if (el.dataset.act === 'tick-step') await tickStep(st.id, id);
         else if (el.dataset.act === 'step-del') await removeStep(st.id, id);
@@ -242,7 +251,7 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'skip': $('#main').focus(); break;
-    case 'retry': S.loadError = null; render(); refresh(); break;
+    case 'retry': S.loadError = null; S.loadSlow = false; render(); refresh(); break;
     case 'drawer-tick': {
       if (tooSoon()) break;
       settle();

@@ -244,7 +244,7 @@ function viewDeleted() {
     return `<li class="trash-row">
       <span class="trash-info"><span class="r-title">${esc(t.title)}</span>
         <span class="r-desc">${esc(TRASH_KIND[t.collection] || 'Item')} · deleted by ${esc(t.deletedBy || 'Someone')}${timing}</span></span>
-      <button class="btn btn-sm" type="button" data-act="restore" data-id="${esc(t.id)}">Put back</button>
+      <button class="btn btn-sm" type="button" data-act="restore" data-id="${esc(t.id)}" aria-label="Put back: ${esc(t.title)}">Put back</button>
     </li>`;
   });
   return `

@@ -179,6 +179,7 @@ export function checkItem(collection, item) {
     if (collection === 'links' && (typeof item.url !== 'string' || !/^https:\/\//i.test(item.url))) return 'A link has to start with https://';
     if (collection === 'links' && !['link', 'learn'].includes(item.section)) return 'A link goes under "link" or "learn".';
   }
+  if (item.end && !item.date) return 'An end date needs a start date.';
   if (item.date && item.end && item.end < item.date) return 'The end date is before the start date.';
   return null;
 }
